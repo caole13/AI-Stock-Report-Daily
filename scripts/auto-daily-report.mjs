@@ -10,7 +10,7 @@ if (!apiKey) {
 
 const ai = new GoogleGenAI({ apiKey });
 
-// 1. 定义符合项目前端规范的严密 Schema
+// 1. 标准 Schema 定义
 const reportSchema = {
   type: Type.OBJECT,
   properties: {
@@ -132,7 +132,7 @@ const reportSchema = {
   required: ["date", "marketStatus", "macroSummary", "aiReport", "sectors", "movers", "causalChains"]
 };
 
-// 异步休眠函数 (用于 429 限流重试)
+// 延迟等待函数
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function runAutomation() {
@@ -144,7 +144,7 @@ async function runAutomation() {
     day: "2-digit"
   }).format(new Date());
 
-  console.log(`[${new Date().toISOString()}] 启动自动化投研流水线，锁定美东交易日: ${today}...`);
+  console.log(`[${new Date().toISOString()}] 启动自动化流水线，目标交易日: ${today}...`);
 
   const prompt = `请启用 Google Search 工具，检索美股【${today}】今日盘后真实的收盘数据与突发重大新闻（如重磅财报、宏观指标），严格按预设 Schema 生成结构化 JSON 研报。
 
@@ -153,7 +153,7 @@ async function runAutomation() {
 1. {"name": "标普500", "ticker": "SPX"}
 2. {"name": "纳斯达克", "ticker": "IXIC"}
 3. {"name": "美国原油基金ETF", "ticker": "USO"}
-4. {"name": "COMEX黄金", "ticker": "GC=F"}
+4. {"name": "COMEX黄金", "ticker": GC=F"}
 5. {"name": "10年期美债", "ticker": "^TNX"}
 6. {"name": "美元指数", "ticker": "DXY"}
 
@@ -166,10 +166,7 @@ async function runAutomation() {
 
 ==================== 【核心总结与字数硬性约束 (200-300字)】 ====================
 请在 aiReport.dailyExecutiveSummary 中提供一段字数在 200~300 字的今日大局精炼总结：
-- 涵盖内容：
-  1. 宏观利率/大宗/指数变动与底层传导机制。
-  2. 当日核心重磅财报的关键业绩指标与超预期点。
-  3. 资金主线轮动方向与次日短线多空博弈重点。
+- 涵盖内容：宏观利率/大宗/指数变动与底层传导机制、核心财报业绩超预期点、资金主线轮动方向。
 - 语言风格：专业华尔街策略师口吻，穿透底层逻辑，信息高密度，杜绝废话。
 
 ==================== 【检索建议 Query（分阶段精确检索）】 ====================
@@ -187,7 +184,7 @@ async function runAutomation() {
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`📡 正在调用 Gemini 3.6 Flash 生成研报 (第 ${attempt}/${maxRetries} 次)...`);
+      console.log(`📡 正在调用 Gemini 3.6 Flash 生成研报 (尝试第 ${attempt}/${maxRetries} 次)...`);
       response = await ai.models.generateContent({
         model: "gemini-3.6-flash",
         contents: prompt,
@@ -203,8 +200,8 @@ async function runAutomation() {
       break;
     } catch (err) {
       if (err?.status === 429 && attempt < maxRetries) {
-        const waitSec = attempt * 25;
-        console.warn(`⚠️ 遇到 429 免费层速率限制，等待 ${waitSec} 秒后重试...`);
+        const waitSec = attempt * 35; // 429 时递增等待 35s, 70s
+        console.warn(`⚠️ 遇到 429 免费层速率限制，等待 ${waitSec} 秒后自动重试...`);
         await sleep(waitSec * 1000);
       } else {
         throw err;
@@ -214,7 +211,6 @@ async function runAutomation() {
 
   const reportJson = JSON.parse(response.text);
 
-  // 本地存储与归档逻辑
   const dataDir = path.resolve("./src/data/reports");
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -226,7 +222,7 @@ async function runAutomation() {
   console.log(`✅ [${today}] 美股投研研报已成功写入并归档！`);
 }
 
-runAutomation().catch(err => {
+runAutomation().catch((err) => {
   console.error("❌ 执行失败:", err);
   process.exit(1);
 });
