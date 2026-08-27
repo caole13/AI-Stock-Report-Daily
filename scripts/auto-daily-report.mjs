@@ -172,7 +172,7 @@ async function runAutomation() {
     try {
       console.log(`📡 正在调用极速模型生成研报 (第 ${attempt}/${maxRetries} 次调用)...`);
       response = await ai.models.generateContent({
-        model: "gemini-2.5-flash-latest",
+        model: "gemini-3.6-flash",
         contents: prompt,
         config: {
           systemInstruction: `你是一名兼具顶级宏观策略视野与量化视角的华尔街股票策略分析师。
