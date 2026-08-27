@@ -131,6 +131,9 @@ const reportSchema = {
   required: ["date", "marketStatus", "macroSummary", "aiReport", "sectors", "movers", "causalChains"]
 };
 
+// 异步等待函数（用于免费 API 遇限重试）
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
 async function runAutomation() {
   const today = new Date().toISOString().split("T")[0];
   console.log(`[${new Date().toISOString()}] 启动自动化投研流水线: ${today}...`);
@@ -162,18 +165,35 @@ async function runAutomation() {
 2. 【无新闻标记】：若个股异动仅为技术面反弹或资金轮动，在 newsAttribution/catalyst 中必须明确填写：“【纯技术面/资金轮动，无突发公告】”。
 3. 【纯文本 JSON】：严禁在字符串内部插入任何 Markdown 链接、URL 或角标引用（如 [[1](...)]）。`;
 
-  const response = await ai.models.generateContent({
-    model: "gemini-3.6-flash",
-    contents: prompt,
-    config: {
-      systemInstruction: `你是一名兼具顶级宏观策略视野与量化视角的华尔街股票策略分析师。
+  let response = null;
+  const maxRetries = 3;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      console.log(`📡 正在调用极速模型生成研报 (第 ${attempt}/${maxRetries} 次调用)...`);
+      response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-latest",
+        contents: prompt,
+        config: {
+          systemInstruction: `你是一名兼具顶级宏观策略视野与量化视角的华尔街股票策略分析师。
 你的职责是在美股收盘后，根据联网搜索到的真实盘后数据，生成严谨、专业、零幻觉的结构化 JSON 投研复盘。
 严禁编造数据，查不到的点位一律返回 null；严禁插入任何 Markdown 链接或 URL 格式。`,
-      tools: [{ googleSearch: {} }],
-      responseMimeType: "application/json",
-      responseSchema: reportSchema
+          tools: [{ googleSearch: {} }],
+          responseMimeType: "application/json",
+          responseSchema: reportSchema
+        }
+      });
+      break;
+    } catch (err) {
+      if (err?.status === 429 && attempt < maxRetries) {
+        const waitSec = attempt * 20;
+        console.warn(`⚠️ 触发免费层频率限制(429)，等待 ${waitSec} 秒后自动重试...`);
+        await sleep(waitSec * 1000);
+      } else {
+        throw err;
+      }
     }
-  });
+  }
 
   const reportJson = JSON.parse(response.text);
 
