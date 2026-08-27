@@ -163,7 +163,7 @@ async function runAutomation() {
 3. 【纯文本 JSON】：严禁在字符串内部插入任何 Markdown 链接、URL 或角标引用（如 [[1](...)]）。`;
 
   const response = await ai.models.generateContent({
-    model: "gemini-2.5-flash",
+    model: "gemini-3.6-flash",
     contents: prompt,
     config: {
       systemInstruction: `你是一名兼具顶级宏观策略视野与量化视角的华尔街股票策略分析师。
