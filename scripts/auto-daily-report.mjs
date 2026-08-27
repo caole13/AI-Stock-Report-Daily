@@ -153,7 +153,7 @@ async function runAutomation() {
 1. {"name": "标普500", "ticker": "SPX"}
 2. {"name": "纳斯达克", "ticker": "IXIC"}
 3. {"name": "美国原油基金ETF", "ticker": "USO"}
-4. {"name": "COMEX黄金", "ticker": GC=F"}
+4. {"name": "COMEX黄金", "ticker": "GC=F"}
 5. {"name": "10年期美债", "ticker": "^TNX"}
 6. {"name": "美元指数", "ticker": "DXY"}
 
@@ -180,7 +180,7 @@ async function runAutomation() {
 3. 【纯文本 JSON】：严禁在字符串内部插入任何 Markdown 链接、URL 或角标引用（如 [[1](...)]）。`;
 
   let response = null;
-  const maxRetries = 3;
+  const maxRetries = 4;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
@@ -200,7 +200,8 @@ async function runAutomation() {
       break;
     } catch (err) {
       if (err?.status === 429 && attempt < maxRetries) {
-        const waitSec = attempt * 35; // 429 时递增等待 35s, 70s
+        // 阶梯式长退避：60s, 120s, 180s
+        const waitSec = attempt * 60;
         console.warn(`⚠️ 遇到 429 免费层速率限制，等待 ${waitSec} 秒后自动重试...`);
         await sleep(waitSec * 1000);
       } else {
