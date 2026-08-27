@@ -10,6 +10,7 @@ if (!apiKey) {
 
 const ai = new GoogleGenAI({ apiKey });
 
+// 1. 定义符合项目前端规范的严密 Schema
 const reportSchema = {
   type: Type.OBJECT,
   properties: {
@@ -131,12 +132,19 @@ const reportSchema = {
   required: ["date", "marketStatus", "macroSummary", "aiReport", "sectors", "movers", "causalChains"]
 };
 
-// 异步等待函数（用于免费 API 遇限重试）
+// 异步休眠函数 (用于 429 限流重试)
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 async function runAutomation() {
-  const today = new Date().toISOString().split("T")[0];
-  console.log(`[${new Date().toISOString()}] 启动自动化投研流水线: ${today}...`);
+  // 强制锁定美东时间获取交易日日期
+  const today = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+
+  console.log(`[${new Date().toISOString()}] 启动自动化投研流水线，锁定美东交易日: ${today}...`);
 
   const prompt = `请启用 Google Search 工具，检索美股【${today}】今日盘后真实的收盘数据与突发重大新闻（如重磅财报、宏观指标），严格按预设 Schema 生成结构化 JSON 研报。
 
@@ -158,7 +166,16 @@ async function runAutomation() {
 
 ==================== 【核心总结与字数硬性约束 (200-300字)】 ====================
 请在 aiReport.dailyExecutiveSummary 中提供一段字数在 200~300 字的今日大局精炼总结：
-- 涵盖内容：宏观利率/大宗/指数变动与底层传导机制、核心财报业绩超预期点、资金主线轮动方向。
+- 涵盖内容：
+  1. 宏观利率/大宗/指数变动与底层传导机制。
+  2. 当日核心重磅财报的关键业绩指标与超预期点。
+  3. 资金主线轮动方向与次日短线多空博弈重点。
+- 语言风格：专业华尔街策略师口吻，穿透底层逻辑，信息高密度，杜绝废话。
+
+==================== 【检索建议 Query（分阶段精确检索）】 ====================
+- Query 1（宏观与大盘）："US stock market close ${today} SPX IXIC USO ETF Gold 10Y Treasury DXY"
+- Query 2（板块巨头行情）："NVDA MSFT AAPL LLY UNH AMZN TSLA XOM JPM stock price change ${today}"
+- Query 3（异动与财报大事件）："Stock market biggest movers ${today} earnings news volume"
 
 ==================== 【格式与零幻觉铁律】 ====================
 1. 【禁止数字脑补】：若某标的的收盘价或涨跌幅未在搜索结果中明确出现，对应 price 或 changePct 字段必须直接填 null。
@@ -170,7 +187,7 @@ async function runAutomation() {
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      console.log(`📡 正在调用极速模型生成研报 (第 ${attempt}/${maxRetries} 次调用)...`);
+      console.log(`📡 正在调用 Gemini 3.6 Flash 生成研报 (第 ${attempt}/${maxRetries} 次)...`);
       response = await ai.models.generateContent({
         model: "gemini-3.6-flash",
         contents: prompt,
@@ -186,8 +203,8 @@ async function runAutomation() {
       break;
     } catch (err) {
       if (err?.status === 429 && attempt < maxRetries) {
-        const waitSec = attempt * 20;
-        console.warn(`⚠️ 触发免费层频率限制(429)，等待 ${waitSec} 秒后自动重试...`);
+        const waitSec = attempt * 25;
+        console.warn(`⚠️ 遇到 429 免费层速率限制，等待 ${waitSec} 秒后重试...`);
         await sleep(waitSec * 1000);
       } else {
         throw err;
@@ -197,6 +214,7 @@ async function runAutomation() {
 
   const reportJson = JSON.parse(response.text);
 
+  // 本地存储与归档逻辑
   const dataDir = path.resolve("./src/data/reports");
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
