@@ -1,0 +1,216 @@
+{
+  "date": "2026-08-26",
+  "marketStatus": "Standard Market Hours Closed / Post-Market Session Active",
+  "macroSummary": {
+    "coreThesis": "7月PCE通胀数据环比符合预期但同比显示黏性，驱动美债收益率与美元微升；大盘在英伟达重磅财报发布前夕维持窄幅震荡，盘后科技龙头与绩优软件股强劲爆发。",
+    "transmissionDetail": "美国7月核心PCE环比增长0.2%符合预期，但同比上涨3.3%凸显通胀韧性，推动10年期美债收益率回升至4.65%，对高估值科技股形成无风险利率压制。与此同时，中东外交谈判缓和了地缘供给担忧，导致原油重挫，压制大宗商品板块；资金在常规交易日保持观望，盘后随着英伟达、CrowdStrike及Salesforce强劲财报落地，科技与云计算板块爆发强力买盘。",
+    "assets": [
+      {
+        "name": "标普500",
+        "ticker": "SPX",
+        "trend": "down",
+        "changePct": "-0.02%",
+        "price": 7675.7
+      },
+      {
+        "name": "纳斯达克",
+        "ticker": "IXIC",
+        "trend": "down",
+        "changePct": "-0.10%",
+        "price": 26151.3
+      },
+      {
+        "name": "美国原油基金ETF",
+        "ticker": "USO",
+        "trend": "down",
+        "changePct": "-4.58%",
+        "price": 126.15
+      },
+      {
+        "name": "COMEX黄金",
+        "ticker": "GC=F",
+        "trend": "down",
+        "changePct": "-0.60%",
+        "price": 4626.79
+      },
+      {
+        "name": "10年期美债",
+        "ticker": "^TNX",
+        "trend": "up",
+        "changePct": null,
+        "price": 4.65
+      },
+      {
+        "name": "美元指数",
+        "ticker": "DXY",
+        "trend": "up",
+        "changePct": "+0.17%",
+        "price": 99.07
+      }
+    ]
+  },
+  "aiReport": {
+    "dailyExecutiveSummary": "2026年8月26日美股交易日，三大指数在前高附近窄幅震荡。核心逻辑围绕美联储关注的7月PCE数据与盘后英伟达财报展开。7月核心PCE环比增加0.2%符合预期，但同比升至3.3%显示通胀黏性，驱动10年期美债收益率反弹至4.65%，美元指数小幅走强，黄金与原油价格承压走低。盘面呈现显著的业绩驱动与板块分化特征：英伟达盘后公布二财季营收翻倍并给出远超预期的全面指引，带动盘后芯片与AI链反弹；软件巨头CrowdStrike与Salesforce盘后财报大超预期暴涨超10%；服饰龙头Abercrombie & Fitch凭爆款业绩与关税退税大涨超35%。整体资金在宏观利率压制与科技龙头高增长之间展开博弈，呈现高度结构化轮动。",
+    "executiveSnapshot": "标普500与纳斯达克在前高关口前平盘收官，交易员集中于盘后重磅财报事件；软件及硬件龙头业绩全面超越预期，极大地释放了市场对AI资本开支见顶的忧虑。",
+    "heavyweightInsights": [
+      {
+        "title": "英伟达二财季营收翻倍且指引超预期，AI拐点论夯实算力信仰",
+        "impact": "英伟达公布Q2营收翻倍增长，黄仁勋强调AI处于加速拐点，管理层对下季度及FY28给出极其强劲的前瞻指引，打破此前连续数个季度的放缓担忧，带动供应链盘后急涨。"
+      },
+      {
+        "title": "7月PCE数据显示黏性，美债收益率反弹至4.65%",
+        "impact": "美联储偏爱的PCE指标环比持平预期，但同比略高，使得市场对9月大降息的预期适度降温，支撑美元指数走强并压制大宗商品。"
+      },
+      {
+        "title": "SaaS与网络安全爆发，SaaS板块估值重估",
+        "impact": "CrowdStrike与Salesforce盘后双双发布极佳财报与业绩指引，证明企业级AI落地与安全需求加速转化为ARR增长，带动企业软件板块强劲反弹。"
+      }
+    ],
+    "sectorRotations": {
+      "growth": "盘中AI硬件与SaaS高位巩固，盘后受NVDA、CRWD及CRM利好催化全面放量急飙，资金重新回流半导体与云软件。",
+      "defensive": "医疗与必选消费展现防守韧性，公用事业受利率回升小幅回落，整体防御性板块在财报日沦为资金流出池。",
+      "capitalFlow": "资金从能源与高位避险大宗商品（原油、黄金）流出，向具备确定性业绩支撑的AI硬件链及SaaS基础设施巨头集中。"
+    },
+    "tacticalOutlook": {
+      "bullIdeas": "关注英伟达供应链及具备AI应用落地变现能力的SaaS龙头（如CrowdStrike、Salesforce），逢回调积极布局业绩超预期个股。",
+      "bearIdeas": "警惕受油价下跌拖累的传统能源上游板块，以及受高利率压制的无盈利高贝塔成长股。"
+    }
+  },
+  "sectors": [
+    {
+      "name": "科技成长",
+      "etf": "XLK",
+      "leaders": [
+        {
+          "ticker": "NVDA",
+          "catalyst": "常规盘回落1.38%等待财报；盘后公布二财季营收翻倍并上调前瞻指引，黄仁勋称AI达到拐点，股价盘后强劲反弹",
+          "changePct": "-1.38%"
+        },
+        {
+          "ticker": "MSFT",
+          "catalyst": "随着AI云基础设施投入持续获市场肯定，盘中多头买盘积极，收涨0.90%",
+          "changePct": "+0.90%"
+        },
+        {
+          "ticker": "AAPL",
+          "catalyst": "资金流向防守型科技巨头，硬件端订单预期稳健，盘中逆势上涨1.10%",
+          "changePct": "+1.10%"
+        }
+      ]
+    },
+    {
+      "name": "医疗健康",
+      "etf": "XLV",
+      "leaders": [
+        {
+          "ticker": "LLY",
+          "catalyst": "受近期高位获利回吐与药价政策监管预期扰动，盘中承压下跌3.57%",
+          "changePct": "-3.57%"
+        },
+        {
+          "ticker": "UNH",
+          "catalyst": "【纯技术面/资金轮动，无突发公告】随着防御性资金调仓，盘中维持窄幅整理",
+          "changePct": null
+        }
+      ]
+    },
+    {
+      "name": "可选/必选消费",
+      "etf": "XLY",
+      "leaders": [
+        {
+          "ticker": "AMZN",
+          "catalyst": "常规盘微跌0.30%；盘后宣布深化与英伟达合作部署200万颗GPU，激发盘后买盘",
+          "changePct": "-0.30%"
+        },
+        {
+          "ticker": "TSLA",
+          "catalyst": "受电动车竞争加剧与技术面均线压制影响，盘中微幅下行1.30%",
+          "changePct": "-1.30%"
+        }
+      ]
+    },
+    {
+      "name": "能源与金融",
+      "etf": "XLE",
+      "leaders": [
+        {
+          "ticker": "XOM",
+          "catalyst": "国际原油价格受阿曼斡旋中东局势及霍尔木兹海峡谈判影响走低，拖累能源巨头",
+          "changePct": null
+        },
+        {
+          "ticker": "JPM",
+          "catalyst": "【纯技术面/资金轮动，无突发公告】美债收益率上升提供利差支撑，盘中高位窄幅震荡",
+          "changePct": null
+        }
+      ]
+    }
+  ],
+  "movers": [
+    {
+      "ticker": "ANF",
+      "name": "Abercrombie & Fitch",
+      "sector": "可选消费",
+      "newsAttribution": "第二财季EPS达$4.17远超预期的$1.99，营收$1.27B同比增5%，大幅上调全年销售与利润指引，并获$1亿关税退税利好",
+      "shortTermOutlook": "业绩与指引大超预期促成缺口暴涨，短期动能极强，需关注高位获利盘消化情况",
+      "midTermLogic": "连续15个季度同店增长证明品牌翻新与Target渠道合作成功，盈利能力显著提升",
+      "invalidationLevel": "135.00",
+      "changePct": "+35.67%",
+      "rvol": "4.5"
+    },
+    {
+      "ticker": "CRWD",
+      "name": "CrowdStrike Holdings",
+      "sector": "科技/网络安全",
+      "newsAttribution": "第二财季营收$1.47B同比增26%，Falcon Flex订单爆发驱动ARR破58.4亿，全年指引显著上调，盘后股价大涨超11%",
+      "shortTermOutlook": "盘后放量突破震荡箱体，次日开盘预计延续冲高趋势",
+      "midTermLogic": "AI安全需求转化为核心ARR增长，平台化整合提升客户留存与客单价",
+      "invalidationLevel": "195.00",
+      "changePct": "+2.05%",
+      "rvol": "2.8"
+    },
+    {
+      "ticker": "CRM",
+      "name": "Salesforce",
+      "sector": "科技/软件",
+      "newsAttribution": "第二财季调整后EPS达$5.90远超预期的$3.27，营收$11.35B增长11%，上调三季度与全年指引，盘后飙升超12%",
+      "shortTermOutlook": "盘后大幅跳空高开，重新站上关键技术均线，开启估值修复行情",
+      "midTermLogic": "Agentforce与企业AI应用变现节奏超预期，利润率与自由现金流持续改善",
+      "invalidationLevel": "215.00",
+      "changePct": null,
+      "rvol": "3.1"
+    },
+    {
+      "ticker": "NVDA",
+      "name": "NVIDIA Corporation",
+      "sector": "科技/半导体",
+      "newsAttribution": "第二财季营收同比翻倍且指引强劲，CEO称AI处于加速拐点，盘后打破前期业绩发布后的下跌魔咒逆势冲高",
+      "shortTermOutlook": "盘后利好兑现带动半导体产业链集体反弹，关注盘后高点突破确认",
+      "midTermLogic": "新一代Blackwell与下一代架构产销两旺，超大型数据中心建设计划夯实长期算力壁垒",
+      "invalidationLevel": "200.00",
+      "changePct": "-1.38%",
+      "rvol": "2.2"
+    }
+  ],
+  "causalChains": [
+    {
+      "driver": "7月核心PCE通胀显示黏性与10年期美债收益率升至4.65%",
+      "mechanism": "无风险利率反弹推升权益市场折现率，挤压高估值与无盈利成长股的溢价空间",
+      "beneficiary": "货币基金、美元指数（DXY）",
+      "victim": "COMEX黄金（GC=F）、高贝塔无盈利科技股"
+    },
+    {
+      "driver": "中东海峡外交斡旋降低供给中断风险",
+      "mechanism": "地缘溢价快速消退促使原油空头加仓，压制原油基金及上游采掘板块表现",
+      "beneficiary": "航空运输、交运物流与下游消费品板块",
+      "victim": "美国原油基金ETF（USO）、埃克森美孚（XOM）"
+    },
+    {
+      "driver": "英伟达及SaaS巨头（CRWD、CRM）财报全面超预期",
+      "mechanism": "企业AI资本开支落地为实际营收与ARR增长，验证AI产业链盈利闭环，激发机构加仓买盘",
+      "beneficiary": "AI芯片供应链、云安全与企业软件龙头",
+      "victim": "缺乏AI技术壁垒的传统IT硬件厂商"
+    }
+  ]
+}
