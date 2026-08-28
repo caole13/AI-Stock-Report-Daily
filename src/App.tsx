@@ -18,15 +18,6 @@ import {
 import { Terminal } from "lucide-react";
 
 export function App() {
-  const initialDate = latestReport?.date || AVAILABLE_DATES[0]?.date;
-  const [selectedDate, setSelectedDate] = useState<string>(initialDate);
-  const [activeTab, setActiveTab] = useState<
-    "dashboard" | "briefing" | "transmissions" | "movers" | "chat" | "raw"
-  >("dashboard");
-  const [inspectedStockTicker, setInspectedStockTicker] = useState<string | null>(null);
-  const [isPayloadModalOpen, setIsPayloadModalOpen] = useState<boolean>(false);
-  const [chatInitialQuestion, setChatInitialQuestion] = useState<string>("");
-
   // 1. 动态生成包含最新日期的完整日期列表供 Header 使用
   const dynamicDates = useMemo(() => {
     const list = [...AVAILABLE_DATES];
@@ -39,10 +30,28 @@ export function App() {
     return list;
   }, []);
 
-  // 2. 补全兼容字段，确保 MacroOverview、Heatmap 等组件 100% 完整渲染
+  const [selectedDate, setSelectedDate] = useState<string>(
+    latestReport?.date || AVAILABLE_DATES[0]?.date
+  );
+  const [activeTab, setActiveTab] = useState<
+    "dashboard" | "briefing" | "transmissions" | "movers" | "chat" | "raw"
+  >("dashboard");
+  const [inspectedStockTicker, setInspectedStockTicker] = useState<string | null>(null);
+  const [isPayloadModalOpen, setIsPayloadModalOpen] = useState<boolean>(false);
+  const [chatInitialQuestion, setChatInitialQuestion] = useState<string>("");
+
+  // 2. 深度适配 latestReport.json 的字段层级，确保 MacroOverview、Heatmap 等 100% 完整渲染
   const currentDayData = useMemo(() => {
     if (selectedDate === latestReport?.date) {
       const macroSummary = latestReport.macroSummary || {};
+      
+      // 兼容 assets 数组（支持根目录 assets 或 macroSummary.assets）
+      const rawAssets = Array.isArray(latestReport.assets)
+        ? latestReport.assets
+        : Array.isArray(macroSummary.assets)
+        ? macroSummary.assets
+        : [];
+
       return {
         ...latestReport,
         date: latestReport.date,
@@ -52,20 +61,18 @@ export function App() {
           transmissionDetail: macroSummary.transmissionDetail || "",
           regime: latestReport.marketStatus || "Closed",
           regimeColor: "yellow",
-          assets: Array.isArray(macroSummary.assets)
-            ? macroSummary.assets.map((a: any) => ({
-                name: a.name || a.ticker,
-                ticker: a.ticker,
-                price: a.price ?? null,
-                changePct: a.changePct ?? null,
-                trend: a.trend || "neutral",
-                sparkline: [50, 50, 50, 50, 50] // 默认平滑走势占位
-              }))
-            : []
+          assets: rawAssets.map((a: any) => ({
+            name: a.name || a.ticker,
+            ticker: a.ticker,
+            price: a.price ?? null,
+            changePct: a.changePct ?? null,
+            trend: a.trend || "neutral",
+            sparkline: [50, 50, 50, 50, 50]
+          }))
         },
         sectors: latestReport.sectors || [],
         movers: latestReport.movers || [],
-        transmissions: latestReport.causalChains || [],
+        transmissions: latestReport.causalChains || latestReport.transmissions || [],
         aiReport: latestReport.aiReport || {}
       };
     }
@@ -83,7 +90,7 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#080808] text-slate-200 flex flex-col selection:bg-[#d4af37] selection:text-black font-sans">
-      {/* 1. Top Bar & Date Switcher Header */}
+      {/* 1. 顶部栏与日期切换器 */}
       <Header
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
@@ -92,13 +99,13 @@ export function App() {
         onOpenPayloadModal={() => setIsPayloadModalOpen(true)}
       />
 
-      {/* 2. Ticker Tape Ribbon */}
+      {/* 2. 顶部滚动行情条 */}
       <TickerBar
         currentDayData={currentDayData}
         onSelectTicker={handleStockClick}
       />
 
-      {/* 3. Main Content Area */}
+      {/* 3. 核心内容区域 */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
         {/* TAB 1: 全景大盘 & 领头羊 */}
         {activeTab === "dashboard" && (
@@ -190,7 +197,7 @@ export function App() {
         )}
       </main>
 
-      {/* 4. Global Stock Detail Modal */}
+      {/* 4. 个股弹窗 */}
       <StockDetailModal
         ticker={inspectedStockTicker}
         currentDayData={currentDayData}
@@ -200,14 +207,14 @@ export function App() {
         }
       />
 
-      {/* 5. Prompt Payload Modal */}
+      {/* 5. Prompt Modal */}
       <PromptPayloadModal
         currentDayData={currentDayData}
         isOpen={isPayloadModalOpen}
         onClose={() => setIsPayloadModalOpen(false)}
       />
 
-      {/* 6. Footer */}
+      {/* 6. 页脚 */}
       <footer className="border-t border-slate-850 bg-[#070707] py-4 text-center text-xs font-mono text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>MarketPulse Quantitative Research Engine • {selectedDate} 归档</span>
