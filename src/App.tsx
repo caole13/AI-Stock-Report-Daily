@@ -15,12 +15,14 @@ import {
   AVAILABLE_DATES,
   getHistoricalDataByDate,
 } from "./data/historicalData";
-import { Terminal } from "lucide-react";
+import {
+  Terminal,
+} from "lucide-react";
 
 export function App() {
-  // 1. 获取最新报告的真实日期（优先 2026-08-27）
-  const activeLatestDate = (latestReport as any)?.date || "2026-08-27";
-  const [selectedDate, setSelectedDate] = useState<string>(activeLatestDate);
+  // 1. 优先使用 latestReport.json 的日期
+  const initialDate = latestReport?.date || AVAILABLE_DATES[0]?.date;
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "briefing" | "transmissions" | "movers" | "chat" | "raw"
   >("dashboard");
@@ -28,43 +30,35 @@ export function App() {
   const [isPayloadModalOpen, setIsPayloadModalOpen] = useState<boolean>(false);
   const [chatInitialQuestion, setChatInitialQuestion] = useState<string>("");
 
-  // 2. 深度组装数据，兼容所有历史与最新 JSON 结构
+  // 2. 深度适配 latestReport.json 的字段映射，确保各子组件都能拿到完整数据
   const currentDayData = useMemo(() => {
-    if (selectedDate === activeLatestDate) {
-      const lr = latestReport as any;
-      const macroSummary = lr.macroSummary || {};
-      const rawAssets = Array.isArray(lr.assets)
-        ? lr.assets
-        : Array.isArray(macroSummary.assets)
-        ? macroSummary.assets
-        : [];
-
+    if (selectedDate === latestReport?.date) {
+      const raw: any = latestReport;
       return {
-        ...lr,
-        date: lr.date || activeLatestDate,
-        marketStatus: lr.marketStatus || "Closed",
-        macro: {
-          coreThesis: macroSummary.coreThesis || lr.coreThesis || "",
-          transmissionDetail: macroSummary.transmissionDetail || lr.transmissionDetail || "",
-          regime: lr.marketStatus || "Closed",
-          regimeColor: "yellow",
-          assets: rawAssets.map((a: any) => ({
-            name: a.name || a.ticker,
-            ticker: a.ticker,
-            price: a.price ?? null,
-            changePct: a.changePct ?? null,
-            trend: a.trend || "neutral",
-            sparkline: [40, 45, 42, 48, 50]
-          }))
+        ...raw,
+        // 适配大盘资产与宏观总览
+        macro: raw.macro || {
+          ...raw.macroSummary,
+          assets: raw.assets || [],
+          coreThesis: raw.macroSummary?.coreThesis || "",
+          transmissionDetail: raw.macroSummary?.transmissionDetail || "",
         },
-        sectors: lr.sectors || [],
-        movers: lr.movers || [],
-        transmissions: lr.causalChains || lr.transmissions || [],
-        aiReport: lr.aiReport || {}
+        // 适配板块数据（如果存在 leadingSectors 或 sectors）
+        sectors: raw.sectors || raw.leadingSectors || [],
+        // 适配异动股
+        movers: raw.movers || raw.moversScanner || raw.keyMovers || [],
+        // 适配传导链
+        transmissions: raw.transmissions || raw.causalChains || [],
+        // 适配当日 AI 深度研报
+        aiReport: raw.aiReport || {
+          summary: raw.macroSummary?.coreThesis || "",
+          macroAnalysis: raw.macroSummary?.transmissionDetail || "",
+          keyTakeaways: raw.keyTakeaways || [],
+        },
       };
     }
     return getHistoricalDataByDate(selectedDate) || HISTORICAL_MARKET_DATABASE[0];
-  }, [selectedDate, activeLatestDate]);
+  }, [selectedDate]);
 
   const handleAskAi = (question: string) => {
     setChatInitialQuestion(question);
@@ -77,7 +71,7 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#080808] text-slate-200 flex flex-col selection:bg-[#d4af37] selection:text-black font-sans">
-      {/* 1. Header */}
+      {/* 1. Header 栏 */}
       <Header
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
@@ -86,15 +80,16 @@ export function App() {
         onOpenPayloadModal={() => setIsPayloadModalOpen(true)}
       />
 
-      {/* 2. Ticker Tape */}
+      {/* 2. 顶部滚动行情带 */}
       <TickerBar
         currentDayData={currentDayData}
         onSelectTicker={handleStockClick}
       />
 
-      {/* 3. Main Content Area */}
+      {/* 3. 核心内容区域 */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* TAB 1: 全景大盘 */}
+        
+        {/* TAB 1: 全景大盘 & 领头羊 */}
         {activeTab === "dashboard" && (
           <div className="space-y-8 animate-in fade-in duration-150">
             {currentDayData?.macro && (
@@ -114,7 +109,7 @@ export function App() {
           </div>
         )}
 
-        {/* TAB 2: AI 深度研报 */}
+        {/* TAB 2: 当日 AI 深度研报 */}
         {activeTab === "briefing" && currentDayData?.aiReport && (
           <div className="animate-in fade-in duration-150">
             <AiBriefingView
@@ -125,20 +120,18 @@ export function App() {
           </div>
         )}
 
-        {/* TAB 3: 异动股 */}
+        {/* TAB 3: 异动股与关键位 */}
         {activeTab === "movers" && currentDayData?.movers && (
           <div className="animate-in fade-in duration-150">
             <MoversScanner
               movers={currentDayData.movers}
               selectedDate={selectedDate}
-              onAskAiForStock={(ticker) =>
-                handleAskAi(`请结合 ${selectedDate} 盘面，给出 ${ticker} 的具体操盘计划与多空分界位`)
-              }
+              onAskAiForStock={(ticker) => handleAskAi(`请结合 ${selectedDate} 盘面，给出 ${ticker} 的具体操盘计划与多空分界位`)}
             />
           </div>
         )}
 
-        {/* TAB 4: 因果传导 */}
+        {/* TAB 4: 跨资产因果传导 */}
         {activeTab === "transmissions" && currentDayData?.transmissions && (
           <div className="animate-in fade-in duration-150">
             <CausalTransmissionView
@@ -149,7 +142,7 @@ export function App() {
           </div>
         )}
 
-        {/* TAB 5: AI 策略师对话 */}
+        {/* TAB 5: AI 策略师对话推演 */}
         {activeTab === "chat" && (
           <div className="animate-in fade-in duration-150">
             <AnalystChat
@@ -160,14 +153,14 @@ export function App() {
           </div>
         )}
 
-        {/* TAB 6: 原始数据 */}
+        {/* TAB 6: 原始数据载荷 */}
         {activeTab === "raw" && (
           <div className="bg-[#121212] border border-slate-800 rounded-sm p-6 space-y-4 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
                 <Terminal className="w-4 h-4 text-[#d4af37]" />
                 <h3 className="text-base font-serif font-bold text-white">
-                  {selectedDate} 原始结构化数据 (JSON)
+                  {selectedDate} 原始结构化数据 (JSON Representation)
                 </h3>
               </div>
               <button
@@ -184,24 +177,22 @@ export function App() {
         )}
       </main>
 
-      {/* 4. 个股弹窗 */}
+      {/* 4. 个股详情弹窗 */}
       <StockDetailModal
         ticker={inspectedStockTicker}
         currentDayData={currentDayData}
         onClose={() => setInspectedStockTicker(null)}
-        onAskAi={(ticker) =>
-          handleAskAi(`请深度解析 ${ticker} 在 ${selectedDate} 的走势逻辑与阻力支撑位`)
-        }
+        onAskAi={(ticker) => handleAskAi(`请深度解析 ${ticker} 在 ${selectedDate} 的走势逻辑与阻力支撑位`)}
       />
 
-      {/* 5. Prompt Modal */}
+      {/* 5. Prompt 载荷弹窗 */}
       <PromptPayloadModal
         currentDayData={currentDayData}
         isOpen={isPayloadModalOpen}
         onClose={() => setIsPayloadModalOpen(false)}
       />
 
-      {/* 6. Footer */}
+      {/* 6. 页脚 */}
       <footer className="border-t border-slate-850 bg-[#070707] py-4 text-center text-xs font-mono text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>MarketPulse Quantitative Research Engine • {selectedDate} 归档</span>
@@ -211,4 +202,5 @@ export function App() {
     </div>
   );
 }
+
 export default App;
