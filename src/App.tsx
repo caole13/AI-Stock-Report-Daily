@@ -28,11 +28,13 @@ export function App() {
   const [chatInitialQuestion, setChatInitialQuestion] = useState<string>("");
 
   const currentDayData = useMemo(() => {
+    // 获取基础模板用于兜底结构
+    const baseFallback: any = HISTORICAL_MARKET_DATABASE[0] || {};
+
     if (selectedDate === latestReport?.date) {
       const raw: any = latestReport;
-      const baseFallback = HISTORICAL_MARKET_DATABASE[0] || {};
 
-      // 1. 标准化宏观 6 大资产（SPX, IXIC, USO, GC=F, ^TNX, DXY）
+      // 1. 深度对齐 6 大资产（无论组件读取 macro.assets 还是根 assets，都能精准命中）
       const defaultAssetMeta: Record<string, { name: string; subtext: string; fallbackPrice: number; fallbackChange: string }> = {
         SPX: { name: "标普500", subtext: "标普500基准指数", fallbackPrice: 7730.99, fallbackChange: "+0.72%" },
         IXIC: { name: "纳斯达克", subtext: "纳斯达克综合指数", fallbackPrice: 26541.35, fallbackChange: "+1.57%" },
@@ -54,19 +56,22 @@ export function App() {
         const isDown = changeStr.startsWith("-");
 
         return {
+          id: ticker,
           name: meta.name,
           ticker: ticker,
           subtext: meta.subtext,
           price: priceNum,
           changePct: changeStr,
+          change: changeStr,
           trend: found?.trend || (isDown ? "down" : "up"),
+          status: isDown ? "down" : "up",
           history: Array.isArray(found?.history) && found.history.length > 0
             ? found.history
             : (isDown ? [55, 52, 50, 48, 45, 43, 40] : [40, 42, 45, 48, 50, 52, 55]),
         };
       });
 
-      // 2. 标准化板块与个股数据
+      // 2. 深度对齐板块与成分股，确保 performance 与 changePct 双写
       const rawSectors = raw.sectors || raw.leadingSectors || baseFallback.sectors || [];
       const sanitizedSectors = rawSectors.map((sec: any) => {
         const stocks = (sec.stocks || []).map((stk: any) => {
@@ -78,6 +83,7 @@ export function App() {
             ticker: stk.ticker || "STOCK",
             name: stk.name || stk.ticker || "成分股",
             changePct: changeStr,
+            change: changeStr,
             price: priceNum,
             reason: stk.reason || "【纯技术面/资金轮动】",
             status: stk.status || (changeStr.startsWith("-") ? "down" : "up"),
@@ -106,27 +112,31 @@ export function App() {
         };
       });
 
+      const macroCore = {
+        coreThesis: raw.macroSummary?.coreThesis || raw.macro?.coreThesis || baseFallback.macro?.coreThesis || "今日美股大盘全天呈现低波动整固格局。",
+        transmissionDetail: raw.macroSummary?.transmissionDetail || raw.macro?.transmissionDetail || baseFallback.macro?.transmissionDetail || "美债收益率与美元微升，资金聚集核心标的。",
+        assets: sanitizedAssets,
+      };
+
       return {
         ...raw,
         date: raw.date,
         marketStatus: raw.marketStatus || "Closed",
-        macro: {
-          coreThesis: raw.macroSummary?.coreThesis || raw.macro?.coreThesis || baseFallback.macro?.coreThesis || "",
-          transmissionDetail: raw.macroSummary?.transmissionDetail || raw.macro?.transmissionDetail || baseFallback.macro?.transmissionDetail || "",
-          assets: sanitizedAssets,
-        },
+        macro: macroCore,
+        assets: sanitizedAssets,
         sectors: sanitizedSectors,
+        leadingSectors: sanitizedSectors,
         movers: raw.movers || raw.moversScanner || baseFallback.movers || [],
         transmissions: raw.transmissions || raw.causalChains || baseFallback.transmissions || [],
         aiReport: raw.aiReport || {
-          summary: raw.macroSummary?.coreThesis || "",
-          macroAnalysis: raw.macroSummary?.transmissionDetail || "",
+          summary: macroCore.coreThesis,
+          macroAnalysis: macroCore.transmissionDetail,
           keyTakeaways: raw.keyTakeaways || [],
         },
       };
     }
 
-    return getHistoricalDataByDate(selectedDate) || HISTORICAL_MARKET_DATABASE[0];
+    return getHistoricalDataByDate(selectedDate) || baseFallback;
   }, [selectedDate]);
 
   const handleAskAi = (question: string) => {
@@ -156,13 +166,13 @@ export function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
         {activeTab === "dashboard" && (
           <div className="space-y-8 animate-in fade-in duration-150">
-            {currentDayData?.macro && (
-              <MacroOverview
-                macroData={currentDayData.macro}
-                selectedDate={selectedDate}
-              />
-            )}
+            {/* 宏观大盘概览与 6 大资产卡片 */}
+            <MacroOverview
+              macroData={currentDayData?.macro}
+              selectedDate={selectedDate}
+            />
 
+            {/* 行业领头羊与板块雷达 */}
             {currentDayData?.sectors && currentDayData.sectors.length > 0 && (
               <SectorHeatmap
                 sectors={currentDayData.sectors}
