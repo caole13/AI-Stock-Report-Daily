@@ -15,19 +15,9 @@ import {
   AVAILABLE_DATES,
   getHistoricalDataByDate,
 } from "./data/historicalData";
-import {
-  Sparkles,
-  Layers,
-  Flame,
-  GitFork,
-  ArrowUpRight,
-  TrendingUp,
-  TrendingDown,
-  Terminal,
-} from "lucide-react";
+import { Terminal } from "lucide-react";
 
 export function App() {
-  // 1. 优先使用 latestReport.json 里的最新日期
   const initialDate = latestReport?.date || AVAILABLE_DATES[0]?.date;
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [activeTab, setActiveTab] = useState<
@@ -37,13 +27,46 @@ export function App() {
   const [isPayloadModalOpen, setIsPayloadModalOpen] = useState<boolean>(false);
   const [chatInitialQuestion, setChatInitialQuestion] = useState<string>("");
 
-  // 2. 如果选中的是最新日期，直接渲染 latestReport；如果是历史日期，再查 historicalData
+  // 1. 动态生成包含最新日期的完整日期列表供 Header 使用
+  const dynamicDates = useMemo(() => {
+    const list = [...AVAILABLE_DATES];
+    if (latestReport?.date && !list.some((d) => d.date === latestReport.date)) {
+      list.unshift({
+        date: latestReport.date,
+        label: `${latestReport.date} · ${latestReport.marketStatus || "最新收盘"}`,
+      });
+    }
+    return list;
+  }, []);
+
+  // 2. 补全兼容字段，确保 MacroOverview、Heatmap 等组件 100% 完整渲染
   const currentDayData = useMemo(() => {
     if (selectedDate === latestReport?.date) {
+      const macroSummary = latestReport.macroSummary || {};
       return {
         ...latestReport,
-        macro: latestReport.macroSummary,
-        transmissions: latestReport.causalChains,
+        date: latestReport.date,
+        marketStatus: latestReport.marketStatus || "Closed",
+        macro: {
+          coreThesis: macroSummary.coreThesis || "",
+          transmissionDetail: macroSummary.transmissionDetail || "",
+          regime: latestReport.marketStatus || "Closed",
+          regimeColor: "yellow",
+          assets: Array.isArray(macroSummary.assets)
+            ? macroSummary.assets.map((a: any) => ({
+                name: a.name || a.ticker,
+                ticker: a.ticker,
+                price: a.price ?? null,
+                changePct: a.changePct ?? null,
+                trend: a.trend || "neutral",
+                sparkline: [50, 50, 50, 50, 50] // 默认平滑走势占位
+              }))
+            : []
+        },
+        sectors: latestReport.sectors || [],
+        movers: latestReport.movers || [],
+        transmissions: latestReport.causalChains || [],
+        aiReport: latestReport.aiReport || {}
       };
     }
     return getHistoricalDataByDate(selectedDate) || HISTORICAL_MARKET_DATABASE[0];
@@ -77,11 +100,9 @@ export function App() {
 
       {/* 3. Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        
         {/* TAB 1: 全景大盘 & 领头羊 */}
         {activeTab === "dashboard" && (
           <div className="space-y-8 animate-in fade-in duration-150">
-            {/* Macro Assets Overview (Top 6 assets adaptive grid) */}
             {currentDayData?.macro && (
               <MacroOverview
                 macroData={currentDayData.macro}
@@ -89,7 +110,6 @@ export function App() {
               />
             )}
 
-            {/* Leading Sectors & Stocks (Filtered valid leaders) */}
             {currentDayData?.sectors && (
               <SectorHeatmap
                 sectors={currentDayData.sectors}
@@ -117,7 +137,9 @@ export function App() {
             <MoversScanner
               movers={currentDayData.movers}
               selectedDate={selectedDate}
-              onAskAiForStock={(ticker) => handleAskAi(`请结合 ${selectedDate} 盘面，给出 ${ticker} 的具体操盘计划与多空分界位`)}
+              onAskAiForStock={(ticker) =>
+                handleAskAi(`请结合 ${selectedDate} 盘面，给出 ${ticker} 的具体操盘计划与多空分界位`)
+              }
             />
           </div>
         )}
@@ -168,12 +190,14 @@ export function App() {
         )}
       </main>
 
-      {/* 4. Global Stock Detail Modal (Triggered on click) */}
+      {/* 4. Global Stock Detail Modal */}
       <StockDetailModal
         ticker={inspectedStockTicker}
         currentDayData={currentDayData}
         onClose={() => setInspectedStockTicker(null)}
-        onAskAi={(ticker) => handleAskAi(`请深度解析 ${ticker} 在 ${selectedDate} 的走势逻辑与阻力支撑位`)}
+        onAskAi={(ticker) =>
+          handleAskAi(`请深度解析 ${ticker} 在 ${selectedDate} 的走势逻辑与阻力支撑位`)
+        }
       />
 
       {/* 5. Prompt Payload Modal */}
