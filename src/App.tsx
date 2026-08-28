@@ -15,21 +15,29 @@ import {
   AVAILABLE_DATES,
   getHistoricalDataByDate,
 } from "./data/historicalData";
-import {
-  Sparkles,
-  Layers,
-  Flame,
-  GitFork,
-  ArrowUpRight,
-  TrendingUp,
-  TrendingDown,
-  Terminal,
-} from "lucide-react";
+import { Terminal } from "lucide-react";
 
 export function App() {
-  // 1. 优先使用 latestReport.json 里的最新日期
-  const initialDate = latestReport?.date || AVAILABLE_DATES[0]?.date;
-  const [selectedDate, setSelectedDate] = useState<string>(initialDate);
+  // 1. 动态生成包含最新日期的完整日期列表
+  const dynamicDates = useMemo(() => {
+    if (!latestReport?.date) return AVAILABLE_DATES;
+    const exists = AVAILABLE_DATES.some((d) => d.date === latestReport.date);
+    if (!exists) {
+      return [
+        {
+          date: latestReport.date,
+          label: `${latestReport.date} · 盘后最新`,
+          status: latestReport.marketStatus || "Closed"
+        },
+        ...AVAILABLE_DATES
+      ];
+    }
+    return AVAILABLE_DATES;
+  }, []);
+
+  // 2. 默认选中最新生成的日期 (例如 2026-08-27)
+  const defaultDate = latestReport?.date || dynamicDates[0]?.date;
+  const [selectedDate, setSelectedDate] = useState<string>(defaultDate);
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "briefing" | "transmissions" | "movers" | "chat" | "raw"
   >("dashboard");
@@ -37,13 +45,26 @@ export function App() {
   const [isPayloadModalOpen, setIsPayloadModalOpen] = useState<boolean>(false);
   const [chatInitialQuestion, setChatInitialQuestion] = useState<string>("");
 
-  // 2. 如果选中的是最新日期，直接渲染 latestReport；如果是历史日期，再查 historicalData
+  // 3. 自动适配字段差异，保证全景大盘与宏观卡片完美渲染
   const currentDayData = useMemo(() => {
     if (selectedDate === latestReport?.date) {
+      const macroData = latestReport.macroSummary || {};
       return {
         ...latestReport,
-        macro: latestReport.macroSummary,
-        transmissions: latestReport.causalChains,
+        date: latestReport.date,
+        marketStatus: latestReport.marketStatus,
+        macro: {
+          coreThesis: macroData.coreThesis || "",
+          transmissionDetail: macroData.transmissionDetail || "",
+          assets: macroData.assets || [],
+          // 兼容老组件可能用到的别名字段
+          thesis: macroData.coreThesis || "",
+          details: macroData.transmissionDetail || ""
+        },
+        sectors: latestReport.sectors || [],
+        movers: latestReport.movers || [],
+        transmissions: latestReport.causalChains || [],
+        aiReport: latestReport.aiReport || {}
       };
     }
     return getHistoricalDataByDate(selectedDate) || HISTORICAL_MARKET_DATABASE[0];
@@ -60,7 +81,7 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#080808] text-slate-200 flex flex-col selection:bg-[#d4af37] selection:text-black font-sans">
-      {/* 1. Top Bar & Date Switcher Header */}
+      {/* 1. 顶部栏与日期切换器 */}
       <Header
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
@@ -69,19 +90,18 @@ export function App() {
         onOpenPayloadModal={() => setIsPayloadModalOpen(true)}
       />
 
-      {/* 2. Ticker Tape Ribbon */}
+      {/* 2. 行情跑马灯 */}
       <TickerBar
         currentDayData={currentDayData}
         onSelectTicker={handleStockClick}
       />
 
-      {/* 3. Main Content Area */}
+      {/* 3. 核心内容区域 */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        
         {/* TAB 1: 全景大盘 & 领头羊 */}
         {activeTab === "dashboard" && (
           <div className="space-y-8 animate-in fade-in duration-150">
-            {/* Macro Assets Overview (Top 6 assets adaptive grid) */}
+            {/* 宏观六大核心资产卡片 (标普、纳指、原油、黄金、美债、美元) */}
             {currentDayData?.macro && (
               <MacroOverview
                 macroData={currentDayData.macro}
@@ -89,7 +109,7 @@ export function App() {
               />
             )}
 
-            {/* Leading Sectors & Stocks (Filtered valid leaders) */}
+            {/* 四大板块龙头 */}
             {currentDayData?.sectors && (
               <SectorHeatmap
                 sectors={currentDayData.sectors}
@@ -117,7 +137,9 @@ export function App() {
             <MoversScanner
               movers={currentDayData.movers}
               selectedDate={selectedDate}
-              onAskAiForStock={(ticker) => handleAskAi(`请结合 ${selectedDate} 盘面，给出 ${ticker} 的具体操盘计划与多空分界位`)}
+              onAskAiForStock={(ticker) =>
+                handleAskAi(`请结合 ${selectedDate} 盘面，给出 ${ticker} 的具体操盘计划与多空分界位`)
+              }
             />
           </div>
         )}
@@ -133,7 +155,7 @@ export function App() {
           </div>
         )}
 
-        {/* TAB 5: AI ANALYST CHAT */}
+        {/* TAB 5: AI 策略师对话 */}
         {activeTab === "chat" && (
           <div className="animate-in fade-in duration-150">
             <AnalystChat
@@ -144,7 +166,7 @@ export function App() {
           </div>
         )}
 
-        {/* TAB 6: RAW PAYLOAD VIEW */}
+        {/* TAB 6: 原始数据结构 */}
         {activeTab === "raw" && (
           <div className="bg-[#121212] border border-slate-800 rounded-sm p-6 space-y-4 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -168,7 +190,7 @@ export function App() {
         )}
       </main>
 
-      {/* 4. Global Stock Detail Modal (Triggered on click) */}
+      {/* 4. 个股弹窗 */}
       <StockDetailModal
         ticker={inspectedStockTicker}
         currentDayData={currentDayData}
@@ -176,14 +198,14 @@ export function App() {
         onAskAi={(ticker) => handleAskAi(`请深度解析 ${ticker} 在 ${selectedDate} 的走势逻辑与阻力支撑位`)}
       />
 
-      {/* 5. Prompt Payload Modal */}
+      {/* 5. Prompt Modal */}
       <PromptPayloadModal
         currentDayData={currentDayData}
         isOpen={isPayloadModalOpen}
         onClose={() => setIsPayloadModalOpen(false)}
       />
 
-      {/* 6. Footer */}
+      {/* 6. 页脚 */}
       <footer className="border-t border-slate-850 bg-[#070707] py-4 text-center text-xs font-mono text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>MarketPulse Quantitative Research Engine • {selectedDate} 归档</span>
