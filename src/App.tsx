@@ -15,12 +15,9 @@ import {
   AVAILABLE_DATES,
   getHistoricalDataByDate,
 } from "./data/historicalData";
-import {
-  Terminal,
-} from "lucide-react";
+import { Terminal } from "lucide-react";
 
 export function App() {
-  // 1. 优先使用 latestReport.json 的日期
   const initialDate = latestReport?.date || AVAILABLE_DATES[0]?.date;
   const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [activeTab, setActiveTab] = useState<
@@ -30,29 +27,47 @@ export function App() {
   const [isPayloadModalOpen, setIsPayloadModalOpen] = useState<boolean>(false);
   const [chatInitialQuestion, setChatInitialQuestion] = useState<string>("");
 
-  // 2. 深度适配 latestReport.json 的字段映射，确保各子组件都能拿到完整数据
+  // 精准适配各层级组件的数据结构
   const currentDayData = useMemo(() => {
     if (selectedDate === latestReport?.date) {
       const raw: any = latestReport;
+
+      // 1. 构造 MacroOverview 必须的完整 macro 对象
+      const macro = {
+        coreThesis: raw.macroSummary?.coreThesis || raw.macro?.coreThesis || "",
+        transmissionDetail: raw.macroSummary?.transmissionDetail || raw.macro?.transmissionDetail || "",
+        assets: Array.isArray(raw.assets) ? raw.assets : (raw.macro?.assets || []),
+      };
+
+      // 2. 构造 SectorHeatmap 需要的板块与涨跌幅
+      const rawSectors = raw.sectors || raw.leadingSectors || [];
+      const sectors = rawSectors.map((sec: any) => {
+        // 如果板块自身没有 changePct，自动根据成分股平均值或预设填充
+        let changePct = sec.changePct;
+        if (!changePct && sec.stocks && sec.stocks.length > 0) {
+          const validChanges = sec.stocks
+            .map((s: any) => parseFloat(s.changePct))
+            .filter((n: number) => !isNaN(n));
+          if (validChanges.length > 0) {
+            const avg = validChanges.reduce((a: number, b: number) => a + b, 0) / validChanges.length;
+            changePct = (avg >= 0 ? "+" : "") + avg.toFixed(2) + "%";
+          }
+        }
+        return {
+          ...sec,
+          changePct: changePct || "0.00%",
+        };
+      });
+
       return {
         ...raw,
-        // 适配大盘资产与宏观总览
-        macro: raw.macro || {
-          ...raw.macroSummary,
-          assets: raw.assets || [],
-          coreThesis: raw.macroSummary?.coreThesis || "",
-          transmissionDetail: raw.macroSummary?.transmissionDetail || "",
-        },
-        // 适配板块数据（如果存在 leadingSectors 或 sectors）
-        sectors: raw.sectors || raw.leadingSectors || [],
-        // 适配异动股
+        macro,
+        sectors,
         movers: raw.movers || raw.moversScanner || raw.keyMovers || [],
-        // 适配传导链
         transmissions: raw.transmissions || raw.causalChains || [],
-        // 适配当日 AI 深度研报
         aiReport: raw.aiReport || {
-          summary: raw.macroSummary?.coreThesis || "",
-          macroAnalysis: raw.macroSummary?.transmissionDetail || "",
+          summary: macro.coreThesis,
+          macroAnalysis: macro.transmissionDetail,
           keyTakeaways: raw.keyTakeaways || [],
         },
       };
@@ -71,7 +86,7 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#080808] text-slate-200 flex flex-col selection:bg-[#d4af37] selection:text-black font-sans">
-      {/* 1. Header 栏 */}
+      {/* 1. Header */}
       <Header
         selectedDate={selectedDate}
         onSelectDate={setSelectedDate}
@@ -80,18 +95,18 @@ export function App() {
         onOpenPayloadModal={() => setIsPayloadModalOpen(true)}
       />
 
-      {/* 2. 顶部滚动行情带 */}
+      {/* 2. Ticker Tape */}
       <TickerBar
         currentDayData={currentDayData}
         onSelectTicker={handleStockClick}
       />
 
-      {/* 3. 核心内容区域 */}
+      {/* 3. Main Content */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        
         {/* TAB 1: 全景大盘 & 领头羊 */}
         {activeTab === "dashboard" && (
           <div className="space-y-8 animate-in fade-in duration-150">
+            {/* 确保只要有 macro 就渲染大盘 6 大资产卡片 */}
             {currentDayData?.macro && (
               <MacroOverview
                 macroData={currentDayData.macro}
@@ -99,7 +114,8 @@ export function App() {
               />
             )}
 
-            {currentDayData?.sectors && (
+            {/* 渲染领头羊板块热度 */}
+            {currentDayData?.sectors && currentDayData.sectors.length > 0 && (
               <SectorHeatmap
                 sectors={currentDayData.sectors}
                 selectedDate={selectedDate}
@@ -126,7 +142,9 @@ export function App() {
             <MoversScanner
               movers={currentDayData.movers}
               selectedDate={selectedDate}
-              onAskAiForStock={(ticker) => handleAskAi(`请结合 ${selectedDate} 盘面，给出 ${ticker} 的具体操盘计划与多空分界位`)}
+              onAskAiForStock={(ticker) =>
+                handleAskAi(`请结合 ${selectedDate} 盘面，给出 ${ticker} 的具体操盘计划与多空分界位`)
+              }
             />
           </div>
         )}
@@ -142,7 +160,7 @@ export function App() {
           </div>
         )}
 
-        {/* TAB 5: AI 策略师对话推演 */}
+        {/* TAB 5: AI 对话推演 */}
         {activeTab === "chat" && (
           <div className="animate-in fade-in duration-150">
             <AnalystChat
@@ -185,14 +203,14 @@ export function App() {
         onAskAi={(ticker) => handleAskAi(`请深度解析 ${ticker} 在 ${selectedDate} 的走势逻辑与阻力支撑位`)}
       />
 
-      {/* 5. Prompt 载荷弹窗 */}
+      {/* 5. Prompt 弹窗 */}
       <PromptPayloadModal
         currentDayData={currentDayData}
         isOpen={isPayloadModalOpen}
         onClose={() => setIsPayloadModalOpen(false)}
       />
 
-      {/* 6. 页脚 */}
+      {/* 6. Footer */}
       <footer className="border-t border-slate-850 bg-[#070707] py-4 text-center text-xs font-mono text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>MarketPulse Quantitative Research Engine • {selectedDate} 归档</span>
