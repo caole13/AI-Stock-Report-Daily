@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Header } from "./components/Header";
 import { TickerBar } from "./components/TickerBar";
 import { MacroOverview } from "./components/MacroOverview";
@@ -9,6 +9,7 @@ import { CausalTransmissionView } from "./components/CausalTransmissionView";
 import { AnalystChat } from "./components/AnalystChat";
 import { StockDetailModal } from "./components/StockDetailModal";
 import { PromptPayloadModal } from "./components/PromptPayloadModal";
+import latestReport from "./data/latestReport.json";
 import {
   HISTORICAL_MARKET_DATABASE,
   AVAILABLE_DATES,
@@ -26,7 +27,9 @@ import {
 } from "lucide-react";
 
 export function App() {
-  const [selectedDate, setSelectedDate] = useState<string>(AVAILABLE_DATES[0].date);
+  // 1. 优先使用 latestReport.json 里的最新日期
+  const initialDate = latestReport?.date || AVAILABLE_DATES[0]?.date;
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate);
   const [activeTab, setActiveTab] = useState<
     "dashboard" | "briefing" | "transmissions" | "movers" | "chat" | "raw"
   >("dashboard");
@@ -34,7 +37,17 @@ export function App() {
   const [isPayloadModalOpen, setIsPayloadModalOpen] = useState<boolean>(false);
   const [chatInitialQuestion, setChatInitialQuestion] = useState<string>("");
 
-  const currentDayData = getHistoricalDataByDate(selectedDate) || HISTORICAL_MARKET_DATABASE[0];
+  // 2. 如果选中的是最新日期，直接渲染 latestReport；如果是历史日期，再查 historicalData
+  const currentDayData = useMemo(() => {
+    if (selectedDate === latestReport?.date) {
+      return {
+        ...latestReport,
+        macro: latestReport.macroSummary,
+        transmissions: latestReport.causalChains,
+      };
+    }
+    return getHistoricalDataByDate(selectedDate) || HISTORICAL_MARKET_DATABASE[0];
+  }, [selectedDate]);
 
   const handleAskAi = (question: string) => {
     setChatInitialQuestion(question);
