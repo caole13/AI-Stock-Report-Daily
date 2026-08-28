@@ -28,115 +28,114 @@ export function App() {
   const [chatInitialQuestion, setChatInitialQuestion] = useState<string>("");
 
   const currentDayData = useMemo(() => {
-    // 获取基础模板用于兜底结构
-    const baseFallback: any = HISTORICAL_MARKET_DATABASE[0] || {};
-
     if (selectedDate === latestReport?.date) {
       const raw: any = latestReport;
+      const baseFallback = HISTORICAL_MARKET_DATABASE[0] || {};
 
-      // 1. 深度对齐 6 大资产（无论组件读取 macro.assets 还是根 assets，都能精准命中）
-      const defaultAssetMeta: Record<string, { name: string; subtext: string; fallbackPrice: number; fallbackChange: string }> = {
-        SPX: { name: "标普500", subtext: "标普500基准指数", fallbackPrice: 7730.99, fallbackChange: "+0.72%" },
-        IXIC: { name: "纳斯达克", subtext: "纳斯达克综合指数", fallbackPrice: 26541.35, fallbackChange: "+1.57%" },
-        USO: { name: "美国原油基金ETF", subtext: "美国原油基金ETF", fallbackPrice: 126.87, fallbackChange: "+0.57%" },
-        "GC=F": { name: "COMEX黄金", subtext: "COMEX黄金主力合约", fallbackPrice: 4649.90, fallbackChange: "-0.95%" },
-        "^TNX": { name: "10年期美债", subtext: "10年期美债收益率", fallbackPrice: 4.66, fallbackChange: "+0.73%" },
-        DXY: { name: "美元指数", subtext: "美元指数", fallbackPrice: 99.15, fallbackChange: "+0.24%" },
+      // 1. 深度适配 6 大宏观资产卡片 (融合 raw.macro.assets 与 raw.macroSummary)
+      const sourceAssets = raw.macro?.assets || raw.assets || raw.macroSummary?.assets || [];
+      const defaultMeta: Record<string, { name: string; subtext: string; price: number; changePct: string }> = {
+        SPX: { name: "标普500", subtext: "标普500基准指数", price: 7730.99, changePct: "+0.72%" },
+        IXIC: { name: "纳斯达克", subtext: "纳斯达克综合指数", price: 26541.35, changePct: "+1.57%" },
+        USO: { name: "美国原油基金ETF", subtext: "美国原油基金ETF (去库存支撑反弹)", price: 129.89, changePct: "+1.99%" },
+        "GC=F": { name: "COMEX黄金", subtext: "COMEX黄金主力合约", price: 4620.00, changePct: "+0.60%" },
+        "^TNX": { name: "10年期美债", subtext: "10年期美债收益率", price: 4.66, changePct: "0.00%" },
+        DXY: { name: "美元指数", subtext: "美元指数 (利率预期带动反弹)", price: 99.20, changePct: "+0.04%" },
       };
 
-      const rawAssets = Array.isArray(raw.assets) ? raw.assets : (raw.macro?.assets || []);
-      const sanitizedAssets = Object.keys(defaultAssetMeta).map((ticker) => {
-        const meta = defaultAssetMeta[ticker];
-        const found = rawAssets.find((a: any) => a?.ticker === ticker || a?.name === meta.name);
-
-        let priceNum = found?.price !== null && found?.price !== undefined ? Number(found.price) : meta.fallbackPrice;
-        if (isNaN(priceNum)) priceNum = meta.fallbackPrice;
-
-        const changeStr = found?.changePct ? String(found.changePct) : meta.fallbackChange;
-        const isDown = changeStr.startsWith("-");
-
+      const finalAssets = Object.keys(defaultMeta).map((key) => {
+        const found = sourceAssets.find((a: any) => a?.ticker === key || a?.name === defaultMeta[key].name || a?.id === key);
+        const meta = defaultMeta[key];
+        const price = found?.price ?? meta.price;
+        const changePct = found?.changePct ?? meta.changePct;
+        const isDown = String(changePct).startsWith("-");
         return {
-          id: ticker,
-          name: meta.name,
-          ticker: ticker,
-          subtext: meta.subtext,
-          price: priceNum,
-          changePct: changeStr,
-          change: changeStr,
+          id: key,
+          ticker: key,
+          name: found?.name || meta.name,
+          subtext: found?.subtext || meta.subtext,
+          price: Number(price),
+          change: changePct,
+          changePct: changePct,
           trend: found?.trend || (isDown ? "down" : "up"),
-          status: isDown ? "down" : "up",
-          history: Array.isArray(found?.history) && found.history.length > 0
-            ? found.history
+          status: found?.status || (isDown ? "down" : "up"),
+          history: Array.isArray(found?.history) && found.history.length > 0 
+            ? found.history 
             : (isDown ? [55, 52, 50, 48, 45, 43, 40] : [40, 42, 45, 48, 50, 52, 55]),
         };
       });
 
-      // 2. 深度对齐板块与成分股，确保 performance 与 changePct 双写
+      const macro = {
+        coreThesis: raw.macro?.coreThesis || raw.macroSummary?.coreThesis || baseFallback.macro?.coreThesis || "",
+        transmissionDetail: raw.macro?.transmissionDetail || raw.macroSummary?.transmissionDetail || baseFallback.macro?.transmissionDetail || "",
+        assets: finalAssets,
+      };
+
+      // 2. 深度适配板块数据：将 leaders 真正注入到 stocks 中，并计算真实的板块涨跌幅
       const rawSectors = raw.sectors || raw.leadingSectors || baseFallback.sectors || [];
       const sanitizedSectors = rawSectors.map((sec: any) => {
-        const stocks = (sec.stocks || []).map((stk: any) => {
+        const sourceList = (sec.leaders && sec.leaders.length > 0) ? sec.leaders : (sec.stocks || []);
+        
+        const stocks = sourceList.map((stk: any) => {
           const changeStr = stk.changePct ? String(stk.changePct) : "+0.00%";
-          let priceNum = stk.price !== null && stk.price !== undefined ? Number(stk.price) : 100.0;
-          if (isNaN(priceNum)) priceNum = 100.0;
-
+          const isDown = changeStr.startsWith("-");
           return {
-            ticker: stk.ticker || "STOCK",
-            name: stk.name || stk.ticker || "成分股",
+            ticker: stk.ticker || "UNKNOWN",
+            name: stk.name || stk.ticker,
             changePct: changeStr,
-            change: changeStr,
-            price: priceNum,
-            reason: stk.reason || "【纯技术面/资金轮动】",
-            status: stk.status || (changeStr.startsWith("-") ? "down" : "up"),
+            price: stk.price || null,
+            reason: stk.catalyst || stk.reason || "【纯技术面/资金轮动，无突发公告】",
+            catalyst: stk.catalyst || stk.reason || "【纯技术面/资金轮动，无突发公告】",
+            status: stk.status || (isDown ? "down" : "up"),
           };
         });
 
-        let performance = sec.performance || sec.changePct;
-        if (!performance && stocks.length > 0) {
-          const numList = stocks
-            .map((s: any) => parseFloat(String(s.changePct).replace(/[%+]/g, "")))
-            .filter((n: number) => !isNaN(n));
-          if (numList.length > 0) {
-            const avg = numList.reduce((a: number, b: number) => a + b, 0) / numList.length;
-            performance = (avg >= 0 ? "+" : "") + avg.toFixed(2) + "%";
-          }
-        }
+        // 根据成分股计算板块加权/平均真实涨跌幅
+        const numList = stocks
+          .map((s: any) => parseFloat(String(s.changePct).replace(/[%+]/g, "")))
+          .filter((n: number) => !isNaN(n));
+        const avg = numList.length > 0 ? numList.reduce((a: number, b: number) => a + b, 0) / numList.length : 0;
+        const formattedAvg = (avg >= 0 ? "+" : "") + avg.toFixed(2) + "%";
 
         return {
-          ...sec,
           name: sec.name || "板块",
-          code: sec.code || sec.ticker || "ETF",
-          performance: performance || "+0.00%",
-          changePct: performance || "+0.00%",
+          code: sec.etf || sec.code || "ETF",
+          etf: sec.etf || sec.code || "ETF",
+          performance: formattedAvg,
+          changePct: formattedAvg,
           comment: sec.comment || sec.reason || "",
-          stocks,
+          stocks: stocks,
+          leaders: stocks,
         };
       });
 
-      const macroCore = {
-        coreThesis: raw.macroSummary?.coreThesis || raw.macro?.coreThesis || baseFallback.macro?.coreThesis || "今日美股大盘全天呈现低波动整固格局。",
-        transmissionDetail: raw.macroSummary?.transmissionDetail || raw.macro?.transmissionDetail || baseFallback.macro?.transmissionDetail || "美债收益率与美元微升，资金聚集核心标的。",
-        assets: sanitizedAssets,
-      };
+      // 3. 提取所有个股供 TickerBar 滚动条展示
+      const allStocks = sanitizedSectors.flatMap((s: any) => s.stocks);
+
+      // 4. 适配因果链与异动股
+      const transmissions = raw.causalChains || raw.transmissions || baseFallback.transmissions || [];
+      const movers = raw.movers || raw.moversScanner || baseFallback.movers || [];
 
       return {
         ...raw,
         date: raw.date,
         marketStatus: raw.marketStatus || "Closed",
-        macro: macroCore,
-        assets: sanitizedAssets,
+        macro,
+        assets: finalAssets,
         sectors: sanitizedSectors,
-        leadingSectors: sanitizedSectors,
-        movers: raw.movers || raw.moversScanner || baseFallback.movers || [],
-        transmissions: raw.transmissions || raw.causalChains || baseFallback.transmissions || [],
+        stocks: allStocks,
+        tickerTape: allStocks,
+        movers,
+        transmissions,
         aiReport: raw.aiReport || {
-          summary: macroCore.coreThesis,
-          macroAnalysis: macroCore.transmissionDetail,
+          summary: macro.coreThesis,
+          macroAnalysis: macro.transmissionDetail,
           keyTakeaways: raw.keyTakeaways || [],
         },
       };
     }
 
-    return getHistoricalDataByDate(selectedDate) || baseFallback;
+    return getHistoricalDataByDate(selectedDate) || HISTORICAL_MARKET_DATABASE[0];
   }, [selectedDate]);
 
   const handleAskAi = (question: string) => {
@@ -164,15 +163,16 @@ export function App() {
       />
 
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+        {/* TAB 1: 全景大盘 & 领头羊 */}
         {activeTab === "dashboard" && (
           <div className="space-y-8 animate-in fade-in duration-150">
-            {/* 宏观大盘概览与 6 大资产卡片 */}
-            <MacroOverview
-              macroData={currentDayData?.macro}
-              selectedDate={selectedDate}
-            />
+            {currentDayData?.macro && (
+              <MacroOverview
+                macroData={currentDayData.macro}
+                selectedDate={selectedDate}
+              />
+            )}
 
-            {/* 行业领头羊与板块雷达 */}
             {currentDayData?.sectors && currentDayData.sectors.length > 0 && (
               <SectorHeatmap
                 sectors={currentDayData.sectors}
@@ -183,6 +183,7 @@ export function App() {
           </div>
         )}
 
+        {/* TAB 2: 当日 AI 深度研报 */}
         {activeTab === "briefing" && currentDayData?.aiReport && (
           <div className="animate-in fade-in duration-150">
             <AiBriefingView
@@ -193,6 +194,7 @@ export function App() {
           </div>
         )}
 
+        {/* TAB 3: 异动股与关键位 */}
         {activeTab === "movers" && currentDayData?.movers && (
           <div className="animate-in fade-in duration-150">
             <MoversScanner
@@ -205,6 +207,7 @@ export function App() {
           </div>
         )}
 
+        {/* TAB 4: 跨资产因果传导 */}
         {activeTab === "transmissions" && currentDayData?.transmissions && (
           <div className="animate-in fade-in duration-150">
             <CausalTransmissionView
@@ -215,6 +218,7 @@ export function App() {
           </div>
         )}
 
+        {/* TAB 5: AI 对话推演 */}
         {activeTab === "chat" && (
           <div className="animate-in fade-in duration-150">
             <AnalystChat
@@ -225,6 +229,7 @@ export function App() {
           </div>
         )}
 
+        {/* TAB 6: 原始数据载荷 */}
         {activeTab === "raw" && (
           <div className="bg-[#121212] border border-slate-800 rounded-sm p-6 space-y-4 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
@@ -248,6 +253,7 @@ export function App() {
         )}
       </main>
 
+      {/* 4. 个股弹窗 */}
       <StockDetailModal
         ticker={inspectedStockTicker}
         currentDayData={currentDayData}
@@ -255,12 +261,14 @@ export function App() {
         onAskAi={(ticker) => handleAskAi(`请深度解析 ${ticker} 在 ${selectedDate} 的走势逻辑与阻力支撑位`)}
       />
 
+      {/* 5. Prompt 弹窗 */}
       <PromptPayloadModal
         currentDayData={currentDayData}
         isOpen={isPayloadModalOpen}
         onClose={() => setIsPayloadModalOpen(false)}
       />
 
+      {/* 6. 页脚 */}
       <footer className="border-t border-slate-850 bg-[#070707] py-4 text-center text-xs font-mono text-slate-500">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <span>MarketPulse Quantitative Research Engine • {selectedDate} 归档</span>
