@@ -39,6 +39,6 @@ jobs:
           if git diff-index --quiet HEAD --; then
             echo "没有新数据变动，跳过推送。"
           else
-            git commit -m "chore: auto update daily market report [skip ci]"
+            git commit -m "chore: auto update daily market report" || exit 0
             git push
           fi
