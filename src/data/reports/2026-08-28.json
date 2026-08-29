@@ -1,75 +1,79 @@
 {
   "date": "2026-08-28",
-  "marketStatus": "收盘",
+  "marketStatus": "美股已收盘 (2026-08-28)",
   "macroSummary": {
-    "coreThesis": "英伟达强劲业绩与指引全面重振AI链条风险偏好，穿透通胀粘性与利率高企迷雾，推动美股指数分化上涨。",
-    "transmissionDetail": "半导体龙头爆表指引解除市场对算力资本支出见顶的担忧，科技股展现极强资金虹吸效应。尽管PCE通胀依然在3.7%保持粘性且杰克逊霍尔央行年会在即，长端美债收益率与美元走强，但资金依然从必选消费与医疗等防御板块撤出，加速向算力与软件生态轮动。",
+    "coreThesis": "美联储主席Warsh在杰克逊霍尔会议释放鹰派通胀信号，引发长端美债收益率与美元抬升，压制高估值成长股并导致大盘承压整理。",
+    "transmissionDetail": "美联储鹰派调压高通胀 -> 10年期美债收益率上行至4.68% -> 权益市场股权风险溢价（ERP）遭挤压 -> 英伟达等大盘科技股获利回吐，盘面转向业绩确凿的个股α行情。",
     "assets": [
       {
         "name": "标普500",
         "ticker": "SPX",
-        "trend": "up",
-        "changePct": "+0.72%",
-        "price": 7730.99
+        "trend": "down",
+        "changePct": "-0.25%",
+        "price": 7711.76
       },
       {
         "name": "纳斯达克",
         "ticker": "IXIC",
-        "trend": "up",
-        "changePct": "+1.57%",
-        "price": 26541.35
+        "trend": "down",
+        "changePct": "-0.52%",
+        "price": 26402.42
       },
       {
         "name": "美国原油基金ETF",
         "ticker": "USO",
         "trend": "down",
-        "changePct": null,
-        "price": null
+        "changePct": "-0.19%",
+        "price": 129.7
       },
       {
         "name": "COMEX黄金",
         "ticker": "GC=F",
         "trend": "down",
-        "changePct": null,
-        "price": null
+        "changePct": "-0.40%",
+        "price": 4580
       },
       {
         "name": "10年期美债",
         "ticker": "^TNX",
         "trend": "up",
-        "changePct": null,
-        "price": null
+        "changePct": "+0.21%",
+        "price": 4.68
       },
       {
         "name": "美元指数",
         "ticker": "DXY",
         "trend": "up",
-        "changePct": null,
-        "price": null
+        "changePct": "+0.05%",
+        "price": 99.2
       }
     ]
   },
   "aiReport": {
-    "dailyExecutiveSummary": "今日美股市场在英伟达爆表财报驱动下呈现结构性牛市。科技股权重极高的纳斯达克大涨1.57%，标普500上涨0.72%，而必选消费与医疗等防御板块则遭资金抛售。底层传导机制在于，英伟达给出下一财年营收增长70%的超预指引，一举击碎AI资本支出见顶疑虑，带动Salesforce与云安全板块共振暴涨。宏观层面，尽管PCE通胀在3.7%保持粘性，压制降息预期并推升长端美债收益率，但资金选择穿透宏观利率迷雾，拥抱极高确定性的AI算力主线。杰克逊霍尔央行年会前夕，科技成长板块展现出极强虹吸效应，资金全面从防御板块向半导体与软件龙头集中轮动。",
-    "executiveSnapshot": "科技成长股暴涨带领大盘上扬，英伟达以单日巨额市值增幅重塑AI投资逻辑；美联储杰克逊霍尔会议前夕，防御性板块承压。",
+    "dailyExecutiveSummary": "2026年8月28日美股收盘涨跌互现，标普500收跌0.25%，纳指回落0.52%。市场核心主线由美联储主席Warsh在杰克逊霍尔研讨会上的鹰派发言主导，其强调通胀韧性与紧缩任务尚未完成，推动10年期美债收益率攀升至4.68%高位，美元指数微涨至99.20，对高估值科技股形成贴现率压制。黄金及原油承压回落。尽管英伟达前日强劲财报引发获利回吐导致重仓股压盘，但业绩爆破标的呈现强劲α收益，Elastic大涨超18%，Gap大幅上调指引后飙升15%。资金流向上看，市场正从纯β估值驱动转向具有确凿业绩支撑的AI应用与优质消费零售，整体呈现‘宏观紧缩担忧压制指数、微观业绩主导分化’的轮动格局。",
+    "executiveSnapshot": "美联储鹰派预期引发美债收益率与美元走高，大盘科技股高位获利回吐，但AI软件与消费超预期财报驱动强劲个股α行情。",
     "heavyweightInsights": [
       {
-        "title": "英伟达营收指引飙升70%重塑算力信仰",
-        "impact": "彻底扫除市场对AI基础设施建设放缓的疑虑，直接拉动半导体及上游数据中心电力基础设施板块全面大涨。"
+        "title": "美联储杰克逊霍尔释放鹰派信号",
+        "impact": "美联储重申控通胀决心，利率维持高位预期升温，美债收益率上行压制高估值科技板块。"
       },
       {
-        "title": "PCE通胀保持3.7%粘性，利率预期面临重塑",
-        "impact": "通胀高于美联储2%目标限制了短期降息空间，市场密切关注美联储主席Warsh在杰克逊霍尔关于框架指引的讲话。"
+        "title": "英伟达财报兑现后引发获利回吐",
+        "impact": "AI巨头业绩虽好但估值处于高位，资金在利率走高背景下选择阶段性锁利，拖累半导体指数。"
+      },
+      {
+        "title": "AI应用与消费零售财报超预期爆发",
+        "impact": "Elastic与Gap业绩超预期大涨，验证AI软件端变现与消费供应链修复，资金向确凿业绩标的集中。"
       }
     ],
     "sectorRotations": {
-      "growth": "受AI产业链绩优股强力带头，半导体、云软件与网络安全等科技板块全线爆发。",
-      "defensive": "必选消费与医疗健康板块领跌，资金从低贝塔防御资产显著流出。",
-      "capitalFlow": "资金大幅流出防御与利率敏感型板块，集中流入高确定性科技巨头与算力生态圈。"
+      "growth": "半导体与大盘科技高位震荡压盘，但AI软件与可观测性板块（ESTC）受业绩催化强劲拉升。",
+      "defensive": "医疗与公用事业板块表现偏防御，消费零售股（GAP）受业绩超预期带动异动大涨。",
+      "capitalFlow": "资金从缺乏短期催化的高估值巨头流出，流向财报大幅超预期并上调指引的个股α标的。"
     },
     "tacticalOutlook": {
-      "bullIdeas": "关注AI算力瓶颈延伸领域（如数据中心电力、冷却设备及算力软件生态）以及业绩超预期的云安全龙头。",
-      "bearIdeas": "谨慎对待估值承压且缺乏业绩催化的必选消费及受制于高利率的中小盘无利润科技股。"
+      "bullIdeas": "关注AI软件落地与企业端云服务变现龙头，以及高利率环境下具备强劲现金流与指引上调的零售与消费标的。",
+      "bearIdeas": "警惕缺乏业绩支撑的高估值成长股在美债收益率持续位于高位时面临的估值杀压。"
     }
   },
   "sectors": [
@@ -79,18 +83,18 @@
       "leaders": [
         {
           "ticker": "NVDA",
-          "catalyst": "二季度业绩与下财年70%营收指引远超预期，CEO表示AI算力需求持续旺盛",
-          "changePct": "+8.74%"
+          "catalyst": "财报公布后利好兑现与美债收益率上行压制估值，引发高位获利回吐",
+          "changePct": "-4.57%"
         },
         {
           "ticker": "MSFT",
-          "catalyst": "受益于英伟达确立的算力资本支出扩张趋势及AI软件云端落地预期",
-          "changePct": null
+          "catalyst": "【纯技术面/资金轮动，无突发公告】",
+          "changePct": "+1.68%"
         },
         {
           "ticker": "AAPL",
           "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "changePct": "+1.63%"
         }
       ]
     },
@@ -100,8 +104,8 @@
       "leaders": [
         {
           "ticker": "LLY",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "catalyst": "GLP-1减肥药强劲需求与防守型资金配置",
+          "changePct": "-0.13%"
         },
         {
           "ticker": "UNH",
@@ -116,13 +120,13 @@
       "leaders": [
         {
           "ticker": "AMZN",
-          "catalyst": "AWS云基础设施与AI算力协同逻辑获英伟达业绩证实",
-          "changePct": null
+          "catalyst": "【纯技术面/资金轮动，无突发公告】",
+          "changePct": "+3.97%"
         },
         {
           "ticker": "TSLA",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "catalyst": "自动驾驶与机器人前景博弈，股价经历连续拉升后高位整理",
+          "changePct": "-1.71%"
         }
       ]
     },
@@ -132,53 +136,75 @@
       "leaders": [
         {
           "ticker": "XOM",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
+          "catalyst": "国际原油价格震荡与板块高分红避险属性支撑",
           "changePct": null
         },
         {
           "ticker": "JPM",
-          "catalyst": "杰克逊霍尔央行年会在即，市场重新定价高利率延续时间",
-          "changePct": null
+          "catalyst": "美联储鹰派立场与高利率环境利好净利息收入预期",
+          "changePct": "+0.96%"
         }
       ]
     }
   ],
   "movers": [
     {
-      "ticker": "NVDA",
-      "name": "英伟达",
-      "sector": "信息技术",
-      "newsAttribution": "二季度业绩全面超预期并预计下一财年营收增长70%，CEO黄仁勋称AI需求强劲且计划追加算力基础设施投资。",
-      "shortTermOutlook": "算力龙头超预期指引击碎资本支出见顶疑虑，短期维持强劲多头格局。",
-      "midTermLogic": "算力需求从单点芯片拓展至整体电力与数据中心生态，长期统治地位坚固。",
-      "invalidationLevel": "200.00",
-      "changePct": "+8.74%",
-      "rvol": null
+      "ticker": "ESTC",
+      "name": "Elastic N.V.",
+      "sector": "科技 / 软件",
+      "newsAttribution": "第一财季营收与EPS均大幅超越市场预期，同时全面上调2027财年全年业绩与指引，AI搜索与可观测性需求爆发。",
+      "shortTermOutlook": "跳空爆量大涨后在100美元大关附近交投，短线将维持高位强势整理。",
+      "midTermLogic": "企业端生成式AI检索与Context Layer需求加速落地，提升软件订阅毛利率与客户留存率。",
+      "invalidationLevel": "88.00美元",
+      "changePct": "+18.98%",
+      "rvol": "3.5x"
     },
     {
-      "ticker": "RBRK",
-      "name": "Rubrik",
-      "sector": "信息技术",
-      "newsAttribution": "二季度营收达4.273亿美元（同比增38%），调整后EPS为0.20美元远超预期，并全面上调全年与三季度指引。",
-      "shortTermOutlook": "财报超预期带动手盘中创下历史新高，随后出现部分获利回吐，短期震荡消化估值。",
-      "midTermLogic": "智能代理网络安全与数据复原需求爆发，ARR持续加速提速中长期盈利能力。",
-      "invalidationLevel": "92.00",
-      "changePct": "+11.33%",
-      "rvol": null
+      "ticker": "GAP",
+      "name": "盖璞",
+      "sector": "可选消费 / 服装零售",
+      "newsAttribution": "第二财季盈利显著超出华尔街预期，并宣布上调2026财年全年调整后每股收益指引。",
+      "shortTermOutlook": "财报催化下形成强势缺口突破，短期或有小幅回踩缺口需求，但中期多头格局建立。",
+      "midTermLogic": "品牌重组与供应链效率优化效果显现，营运杠杆改善带动利润率提升。",
+      "invalidationLevel": "21.50美元",
+      "changePct": "+15.20%",
+      "rvol": "2.8x"
+    },
+    {
+      "ticker": "AFRM",
+      "name": "Affirm Holdings",
+      "sector": "金融科技 / 先买后付",
+      "newsAttribution": "第四财季业绩优于预期，且下一季度销售指引高于预期，BNPL市场渗透率持续扩大。",
+      "shortTermOutlook": "向上突破盘整区间，多头动能强劲。",
+      "midTermLogic": "商户合作拓展与消费者信贷黏性推动GMV保持中高速增长。",
+      "invalidationLevel": "75.00美元",
+      "changePct": "+9.20%",
+      "rvol": "2.2x"
+    },
+    {
+      "ticker": "NVDA",
+      "name": "英伟达",
+      "sector": "科技 / 半导体",
+      "newsAttribution": "前日发布超预期财报后利好兑现，受杰克逊霍尔会议鹰派预期及美债收益率走高影响遭遇高位获利盘压制。",
+      "shortTermOutlook": "短线测试均线支撑，需消化高估值与宏观利率上行压力。",
+      "midTermLogic": "Blackwell芯片产能逐步释放与全球算力基建投资繁荣仍为中期基本面核心底座。",
+      "invalidationLevel": "205.00美元",
+      "changePct": "-4.57%",
+      "rvol": "1.8x"
     }
   ],
   "causalChains": [
     {
-      "driver": "英伟达业绩及下一财年营收70%增长指引全面爆发",
-      "mechanism": "消除市场对AI基础设施资本支出见顶的担忧，重新锚定科技股盈利增长曲线",
-      "beneficiary": "半导体及AI算力产业链（NVDA、CRM、CRWD）",
-      "victim": "传统防御性板块及缺乏业绩支撑的非科技标的"
+      "driver": "美联储主席Warsh在杰克逊霍尔会议释放鹰派信号并强调通胀韧性",
+      "mechanism": "美债收益率上升 -> 股权贴现率上行 -> 挤压高估值大盘科技股估值",
+      "beneficiary": "美元指数 (DXY) / 高收益短期固定收益资产",
+      "victim": "大盘高估值成长股 (NVDA) / 无收益资产COMEX黄金 (GC=F)"
     },
     {
-      "driver": "PCE通胀数据维持在3.7%的高粘性水平",
-      "mechanism": "限制美联储激进降息空间，长端美债收益率走高压制估值敏感度极高的资产",
-      "beneficiary": "美元指数与现金流极其充沛的科技巨头",
-      "victim": "必选消费（XLP）与医疗健康（XLV）等防御板块"
+      "driver": "Elastic (ESTC) 与 Gap (GAP) 财报盈利远超预期并大幅上调指引",
+      "mechanism": "基本面强劲爆发 -> 机构资金追捧与空头平仓回补 -> 驱动股价跳空爆量大涨",
+      "beneficiary": "AI应用软件板块 / 零售消费龙头",
+      "victim": "业绩逊于预期或缺乏基本面催化的同板块跟风标的"
     }
   ]
 }
