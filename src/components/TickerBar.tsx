@@ -4,20 +4,26 @@ import { HistoricalDailyData } from "../types";
 
 interface TickerBarProps {
   currentDayData: HistoricalDailyData;
-  onSelectTicker?: (ticker: string) => void;
+  onSelectStock: (ticker: string) => void;
 }
 
-export const TickerBar: React.FC<TickerBarProps> = ({ currentDayData, onSelectTicker }) => {
+export const TickerBar: React.FC<TickerBarProps> = ({ currentDayData, onSelectStock }) => {
   if (!currentDayData) return null;
 
   // Combine macro items and top sector leaders for scrolling ribbon
-  const macroRibbon = (currentDayData.macro?.items || []).map((m) => ({
-    name: m.name,
-    ticker: m.ticker,
-    value: m.currentValue,
-    change: m.changePercent,
-    unit: m.unit,
-  }));
+  const rawMacro = currentDayData.macro?.items || (currentDayData.macro as any)?.assets || [];
+  const macroRibbon = rawMacro.map((m: any) => {
+    const numChange = m.changePercent !== undefined && m.changePercent !== null
+      ? m.changePercent
+      : (m.changePct ? parseFloat(String(m.changePct).replace("%", "").replace("+", "")) : 0);
+    return {
+      name: m.name || m.ticker,
+      ticker: m.ticker,
+      value: m.currentValue ?? m.price ?? 0,
+      change: numChange,
+      unit: m.unit || "",
+    };
+  });
 
   const stockRibbon = (currentDayData.sectors || []).flatMap((s) =>
     (s.leaders || []).map((l) => ({
@@ -30,55 +36,42 @@ export const TickerBar: React.FC<TickerBarProps> = ({ currentDayData, onSelectTi
   );
 
   const allItems = [...macroRibbon, ...stockRibbon];
+  if (allItems.length === 0) return null;
+
+  // Duplicate items for continuous seamless loop
+  const displayItems = [...allItems, ...allItems];
 
   return (
-    <div className="bg-[#080808] border-b border-slate-850 py-1.5 px-4 overflow-hidden relative select-none">
-      <div className="flex items-center gap-6 animate-none overflow-x-auto no-scrollbar whitespace-nowrap">
-        <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-[#d4af37] flex items-center gap-1 shrink-0">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#d4af37] animate-pulse"></span>
-          {currentDayData.date} 归档行情
-        </span>
+    <div className="w-full bg-[#0d0d0d] border-y border-slate-850 overflow-hidden py-1.5 select-none">
+      <div className="flex w-max animate-ticker hover:[animation-play-state:paused]">
+        {displayItems.map((item, idx) => {
+          const isPos = item.change !== undefined && item.change !== null && item.change > 0;
+          const isNeg = item.change !== undefined && item.change !== null && item.change < 0;
 
-        <div className="flex items-center gap-5 text-xs font-mono">
-          {allItems.map((item, idx) => {
-            const hasChange = item.change !== undefined && item.change !== null;
-            const isPos = hasChange && item.change > 0;
-            const isNeg = hasChange && item.change < 0;
-            const valStr = item.value !== undefined && item.value !== null
-              ? (item.value >= 1000 ? item.value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : item.value.toFixed(2))
-              : "---";
-
-            return (
-              <button
-                key={`${item.ticker}-${idx}`}
-                onClick={() => onSelectTicker && onSelectTicker(item.ticker)}
-                className="flex items-center gap-1.5 hover:bg-[#181818] px-2 py-0.5 rounded-sm transition-colors cursor-pointer group"
+          return (
+            <div
+              key={`${item.ticker}-${idx}`}
+              onClick={() => onSelectStock(item.ticker)}
+              className="inline-flex items-center gap-2 px-4 cursor-pointer hover:bg-slate-850/60 py-0.5 rounded transition-colors text-xs font-mono"
+            >
+              <span className="text-slate-300 font-semibold">{item.ticker}</span>
+              <span className="text-slate-400">
+                {item.value ? item.value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : "-"}
+              </span>
+              <span
+                className={`flex items-center gap-0.5 text-[11px] font-medium ${
+                  isPos ? "text-emerald-400" : isNeg ? "text-rose-400" : "text-slate-400"
+                }`}
               >
-                <span className="font-semibold text-slate-200 group-hover:text-[#d4af37] transition-colors">
-                  {item.ticker}
-                </span>
-                <span className="text-slate-400">
-                  {valStr}
-                </span>
-                {hasChange && (
-                  <span
-                    className={`flex items-center text-[11px] font-bold ${
-                      isPos ? "text-emerald-400" : isNeg ? "text-rose-400" : "text-slate-400"
-                    }`}
-                  >
-                    {isPos ? (
-                      <TrendingUp className="w-3 h-3 mr-0.5 inline" />
-                    ) : isNeg ? (
-                      <TrendingDown className="w-3 h-3 mr-0.5 inline" />
-                    ) : null}
-                    {isPos ? "+" : ""}
-                    {item.change.toFixed(2)}%
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
+                {isPos ? <TrendingUp className="w-2.5 h-2.5" /> : isNeg ? <TrendingDown className="w-2.5 h-2.5" /> : null}
+                {item.change !== undefined && item.change !== null
+                  ? `${isPos ? "+" : ""}${item.change.toFixed(2)}%`
+                  : "-"}
+              </span>
+              <span className="text-slate-700 ml-2">|</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
