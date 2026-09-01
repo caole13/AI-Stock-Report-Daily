@@ -1,5 +1,5 @@
 
-```markdown
+
 # 📈 AI-Stock-Report-Daily: 自动化每日股市AI复盘与研报生成工具
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -93,10 +93,6 @@ python main.py
 本软件自动生成的所有报告与分析内容仅供学习交流与参考，不构成任何投资建议或交易依据。金融市场有风险，投资需独立审慎决策。
 
 ---
-
-## 📄 开源协议
-
-本项目基于 [MIT License](https://www.google.com/search?q=LICENSE) 开源。
 
 ```
 
