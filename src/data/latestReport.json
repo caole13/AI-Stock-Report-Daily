@@ -1,9 +1,9 @@
 {
   "date": "2026-09-01",
-  "marketStatus": "CLOSED",
+  "marketStatus": "Closed",
   "macroSummary": {
-    "coreThesis": "地缘政治突发事件引发原油暴涨与通胀担忧，美债收益率冲高压制美股权益资产估值。",
-    "transmissionDetail": "中东地缘局势升级刺激原油大涨 -> 通胀预期重燃推动10年期美债收益率升至4.796% -> 全市场折现率抬升导致高贝塔科技成长股及可选消费板块遭遇抛售 -> 资金流向能源大宗与防守板块。",
+    "coreThesis": "中东地缘冲突加剧引发油价大涨与通胀担忧，美债收益率走高压制高估值科技股",
+    "transmissionDetail": "美军对伊朗目标发动打击，驱动原油价格突破90美元关口，进而推升二次通胀预期与10年期美债收益率至4.796%高位。无风险利率走高导致贴现率上升，资金迅速挤出高P/E科技股，转向防守型医疗与能源硬资产。",
     "assets": [
       {
         "name": "标普500",
@@ -23,22 +23,22 @@
         "name": "美国原油基金ETF",
         "ticker": "USO",
         "trend": "up",
-        "changePct": "+3.01%",
-        "price": 133.61
+        "changePct": null,
+        "price": null
       },
       {
         "name": "COMEX黄金",
         "ticker": "GC=F",
         "trend": "down",
-        "changePct": "-1.60%",
-        "price": 4374.54
+        "changePct": null,
+        "price": 4396.4
       },
       {
         "name": "10年期美债",
         "ticker": "^TNX",
         "trend": "up",
         "changePct": null,
-        "price": 4.796
+        "price": 4.8
       },
       {
         "name": "美元指数",
@@ -50,26 +50,26 @@
     ]
   },
   "aiReport": {
-    "dailyExecutiveSummary": "2026年9月1日，美股三大指数全线回落，地缘政治冲突升级驱动原油暴涨，USO大涨超3%，重燃市场对通胀二次抬头的担忧。10年期美债收益率冲高至4.796%，压制大盘估值溢价，纳指跌1.03%，标普500跌0.71%。传导机制上，油价飙升与长端利率反弹直接抬高全市场折现率，导致高贝塔科技成长股及可选消费板块遭遇资金抛售。业绩层面，尽管企业级SSD及AI基础设施需求依然稳健，但龙头财报利好已基本消化，市场缺乏新催化剂。资金流向呈现鲜明的避险轮动特征，高估值科技股筹码松动，资金快速流向能源、医药等防御性与抗通胀板块。",
-    "executiveSnapshot": "地缘局势突变拉升油价与美债收益率，美股三大指数回调，资金向能源与防守板块轮动。",
+    "dailyExecutiveSummary": "2026年9月1日美股盘后复盘：中东局势再度升级，美军对伊朗目标发动新一轮军事打击，引发国际原油大幅攀升，WTI原油重回90美元关口之上。二次通胀担忧与美债供给压力叠加，驱动10年期美债收益率拉升至4.796%，地缘政治避险情绪与基准利率走高对高估值科技股构成双重挤压。盘面上，三大股指全线下跌，标普500指数下跌0.71%，纳斯达克指数重挫1.03%。资金呈现结构性防守避险特征，能源与防御性医疗板块逆势走强，而英伟达、亚马逊等大型科技巨头出现明显回调。财报方面，戴尔与MongoDB盘后公布业绩，市场紧盯AI硬件订单变现进度。整体来看，短期内宏观地缘风险与利率高企将持续抑制市场风险偏好，资金向低估值与能源硬资产轮动。",
+    "executiveSnapshot": "美军军事打击伊朗引发油价狂飙，通胀担忧推动10年期美债收益率逼近4.80%，美股三大指数集体收跌，科技股沦为重灾区，能源与医疗板块逆势避险。",
     "heavyweightInsights": [
       {
-        "title": "地缘冲突推升油价与美债收益率",
-        "impact": "地缘风险事件刺激原油暴涨，10年期美债收益率升至4.796%，高估值资产承压。"
+        "title": "地缘政治风险溢价快速计入油价",
+        "impact": "美军空袭伊朗目标导致原油供给担忧暴涨，原油突破90美元，能源板块成为全场唯一避风港。"
       },
       {
-        "title": "AI与企业级存储需求保持强劲",
-        "impact": "数据中心建设计划与企业级SSD需求持续，但难以抵消宏观避险抛盘。"
+        "title": "美债收益率走高重创科技股估值",
+        "impact": "10年期美债收益率升至4.796%，压制成长股贴现估值，纳指领跌大盘。"
       }
     ],
     "sectorRotations": {
-      "growth": "科技与可选消费板块遭遇抛压，高估值成长股整体回落。",
-      "defensive": "能源板块逆势领涨，医疗健康等防守板块相对抗跌。",
-      "capitalFlow": "资金从高贝塔科技股流出，切换至能源大宗及防守防御标的。"
+      "growth": "科技成长板块全面承压，半导体与软硬件巨头遭遇获利了结与估值挤压。",
+      "defensive": "资金显著流入能源与医疗健康板块，防守属性与高现金流标的受追捧。",
+      "capitalFlow": "资金从高估值AI成长股向原油大宗商品与传统低估值价值股挤出。"
     },
     "tacticalOutlook": {
-      "bullIdeas": "关注受益于地缘局势与通胀预期的能源龙头及高确定性算力硬件。",
-      "bearIdeas": "警惕受高利率与折现率上行压制的高估值软件及可选消费股。"
+      "bullIdeas": "关注受益于油价上涨的上游油气开采巨头，以及具备刚性需求的医疗健康板块标的。",
+      "bearIdeas": "对高估值、高债务的成长型科技股保持谨慎，谨防美债收益率持续冲高带来的二次杀估值风险。"
     }
   },
   "sectors": [
@@ -80,17 +80,17 @@
         {
           "ticker": "NVDA",
           "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "changePct": "-1.21%"
         },
         {
           "ticker": "MSFT",
           "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "changePct": "-1.28%"
         },
         {
           "ticker": "AAPL",
           "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "changePct": "+2.47%"
         }
       ]
     },
@@ -100,13 +100,13 @@
       "leaders": [
         {
           "ticker": "LLY",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "catalyst": "避险资金流入医疗避风港，减重药长线需求依然强劲",
+          "changePct": "-2.92%"
         },
         {
           "ticker": "UNH",
           "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "changePct": "-3.19%"
         }
       ]
     },
@@ -117,12 +117,12 @@
         {
           "ticker": "AMZN",
           "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "changePct": "-1.88%"
         },
         {
           "ticker": "TSLA",
           "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "changePct": "-3.42%"
         }
       ]
     },
@@ -132,64 +132,75 @@
       "leaders": [
         {
           "ticker": "XOM",
-          "catalyst": "地缘政治局势紧张推动原油价格暴涨，能源巨头逆势上扬。",
-          "changePct": null
+          "catalyst": "美军空袭伊朗引发原油重回90美元，能源巨头全线上扬",
+          "changePct": "+2.03%"
         },
         {
           "ticker": "JPM",
           "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "changePct": "+4.28%"
         }
       ]
     }
   ],
   "movers": [
     {
-      "ticker": "USO",
-      "name": "美国原油基金ETF",
-      "sector": "能源",
-      "newsAttribution": "中东地缘政治局势升级刺激原油大涨，资金加速涌入原油资产。",
-      "shortTermOutlook": "受地缘溢价支撑保持强劲。",
-      "midTermLogic": "原油供需紧平衡叠加地缘风险溢价，提供抗通胀配置对冲。",
-      "invalidationLevel": "若油价回落打破128美元关键支撑位则趋势失效。",
-      "changePct": "+3.01%",
-      "rvol": null
-    },
-    {
-      "ticker": "DE",
-      "name": "鹿明工业",
-      "sector": "工业",
-      "newsAttribution": "机构买入异常看涨期权且数据中心基建需求拉动设备销量。",
-      "shortTermOutlook": "短期呈放量反弹突破震荡区趋势。",
-      "midTermLogic": "基建与农业机械需求韧性显现，长期基本面稳固。",
-      "invalidationLevel": "跌破612美元50日均线支撑位。",
-      "changePct": "+3.13%",
-      "rvol": "1.6x"
-    },
-    {
       "ticker": "NIO",
       "name": "蔚来汽车",
-      "sector": "可选消费",
-      "newsAttribution": "二季度营收不及预期引发短期卖压，尽管8月交付量回升。",
-      "shortTermOutlook": "短期受财报利空压制，维持底部震荡。",
-      "midTermLogic": "需要等待三季度交付量转化为实际毛利提升以改善盈利逻辑。",
-      "invalidationLevel": "跌破前期低点关键技术支撑。",
+      "sector": "汽车/可选消费",
+      "newsAttribution": "公布二季度财报，营收不及预期，尽管8月交付量回升，但价格战压制毛利率表现",
+      "shortTermOutlook": "区间震荡筑底",
+      "midTermLogic": "新品牌交付放量与成本优化能否推动毛利率企稳回升",
+      "invalidationLevel": "$3.90",
+      "changePct": "-6.41%",
+      "rvol": "1.8"
+    },
+    {
+      "ticker": "PANW",
+      "name": "帕洛阿尔托网络",
+      "sector": "科技/网络安全",
+      "newsAttribution": "公布最新财报，AI安全平台化需求推动业绩超预期，盘后获得资金关注",
+      "shortTermOutlook": "高位震荡上行",
+      "midTermLogic": "网络安全平台化战略提升客户粘性，Agentic AI驱动ARR持续高速增长",
+      "invalidationLevel": "$330.00",
       "changePct": null,
       "rvol": null
+    },
+    {
+      "ticker": "DELL",
+      "name": "戴尔科技",
+      "sector": "科技/硬件",
+      "newsAttribution": "盘后公布二季度财报，市场重点关注其AI服务器积压订单与企业级PC复苏进度",
+      "shortTermOutlook": "高位整理",
+      "midTermLogic": "AI基础设施建设加速，企业级AI服务器订单量保持快速增长",
+      "invalidationLevel": "$125.00",
+      "changePct": null,
+      "rvol": null
+    },
+    {
+      "ticker": "XOM",
+      "name": "埃克森美孚",
+      "sector": "能源",
+      "newsAttribution": "美军对伊朗军事目标实施空袭引发油价飙升突破90美元，能源巨头受避险资金追捧",
+      "shortTermOutlook": "维持强势",
+      "midTermLogic": "地缘溢价支撑原油均价，强劲的现金流与稳健的回购分红提供估值底线",
+      "invalidationLevel": "$112.00",
+      "changePct": "+2.03%",
+      "rvol": "1.5"
     }
   ],
   "causalChains": [
     {
-      "driver": "中东地缘政治局势骤然紧张",
-      "mechanism": "油价大涨再引发通胀焦虑，10年期美债收益率升高抬升全市场折现率",
-      "beneficiary": "USO、XLE等能源类资产",
-      "victim": "XLK科技成长股及XLY可选消费板块"
+      "driver": "中东地缘局势升级与美军空袭伊朗目标",
+      "mechanism": "原油供给中断担忧激增 -> 国际原油价格突破90美元 -> 加剧市场二次通胀预期",
+      "beneficiary": "能源板块（XOM）与大宗商品基金（USO）",
+      "victim": "高估值科技股与消费板块"
     },
     {
-      "driver": "企业级SSD与数据中心建设计划推进",
-      "mechanism": "AI算力部署与大容量存储订单持续增长，推动硬件供应链营收高增",
-      "beneficiary": "企业级存储与算力基础设施龙头",
-      "victim": "无AI场景拓展能力的传统PC及硬件厂商"
+      "driver": "美债收益率上升至4.796%",
+      "mechanism": "无风险利率走高 -> 提升科技股折现率 -> 资金从高估值成长股流向低估值与避险防守板块",
+      "beneficiary": "防守型医疗健康板块",
+      "victim": "高P/E科技成长股（NVDA, AMZN, TSLA）"
     }
   ]
 }
