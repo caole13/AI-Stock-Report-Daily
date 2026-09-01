@@ -1,10 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
-import {
-  HISTORICAL_MARKET_DATABASE,
-  getHistoricalDataByDate,
-  AVAILABLE_DATES,
-} from "./data/historicalData";
-import latestReport from "./data/latestReport.json";
+import { useState, useMemo } from "react";
 import { Header } from "./components/Header";
 import { TickerBar } from "./components/TickerBar";
 import { MacroOverview } from "./components/MacroOverview";
@@ -17,37 +11,43 @@ import { PromptPayloadModal } from "./components/PromptPayloadModal";
 import { AnalystChat } from "./components/AnalystChat";
 import { TabType, StockDetail } from "./types";
 
+// 1. 加载 reports 目录下所有 json 文件
+const reportsModules = import.meta.glob("./data/reports/*.json", { eager: true }) as Record<string, any>;
+
+// 2. 提取并按日期排序
+const allReportDates = Object.keys(reportsModules)
+  .map((p) => p.match(/\/([^/]+)\.json$/)?.[1] || "")
+  .filter(Boolean)
+  .sort((a, b) => b.localeCompare(a));
+
 export function App() {
-  // 1. 优先将默认日期设为 latestReport 中的最新日期
-  const defaultDate = latestReport?.date || AVAILABLE_DATES[0]?.date || "2026-08-28";
+  // 默认日期为最新的一天
+  const defaultDate = allReportDates[0] || "2026-09-01";
   const [selectedDate, setSelectedDate] = useState<string>(defaultDate);
   const [activeTab, setActiveTab] = useState<TabType>("macro");
   const [selectedStockTicker, setSelectedStockTicker] = useState<string | null>(null);
   const [isStockModalOpen, setIsStockModalOpen] = useState(false);
   const [isPayloadModalOpen, setIsPayloadModalOpen] = useState(false);
 
-  // 当 latestReport 更新时，自动同步为最新日期
-  useEffect(() => {
-    if (latestReport?.date && latestReport.date !== selectedDate) {
-      setSelectedDate(latestReport.date);
-    }
-  }, [latestReport?.date]);
-
-  // 2. 切换日期时自动回到宏观大盘首页
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
     setActiveTab("macro");
   };
 
-  // 3. 自动适配字段差异，保证全景大盘与宏观卡片完美渲染
+  // 根据选中的日期加载对应的研报
   const currentDayData = useMemo(() => {
-    if (selectedDate === latestReport?.date) {
-      const macroData = (latestReport as any).macroSummary || (latestReport as any).macro || {};
+    // 优先从 reports/*.json 中查找对应日期
+    const targetModule = reportsModules[`./data/reports/${selectedDate}.json`];
+    const report = targetModule?.default || targetModule;
+
+    if (report) {
+      const macroData = report.macroSummary || report.macro || {};
       const rawAssets = macroData.assets || macroData.items || [];
       const formattedItems = rawAssets.map((a: any) => {
-        const numChange = a.changePercent !== undefined && a.changePercent !== null
-          ? a.changePercent
-          : (a.changePct ? parseFloat(String(a.changePct).replace("%", "").replace("+", "")) : 0);
+        const numChange =
+          a.changePercent !== undefined && a.changePercent !== null
+            ? a.changePercent
+            : (a.changePct ? parseFloat(String(a.changePct).replace("%", "").replace("+", "")) : 0);
         const val = a.currentValue ?? a.price ?? (a.prevValue ? a.prevValue * (1 + numChange / 100) : 100);
         return {
           name: a.name || a.ticker,
@@ -64,9 +64,9 @@ export function App() {
       });
 
       return {
-        ...latestReport,
-        date: latestReport.date,
-        marketStatus: latestReport.marketStatus || "Closed",
+        ...report,
+        date: report.date || selectedDate,
+        marketStatus: report.marketStatus || "Closed",
         macro: {
           coreThesis: macroData.coreThesis || macroData.summary || "",
           transmissionDetail: macroData.transmissionDetail || "",
@@ -76,34 +76,31 @@ export function App() {
           thesis: macroData.coreThesis || "",
           details: macroData.transmissionDetail || ""
         },
-        sectors: ((latestReport as any).sectors || []).map((s: any, idx: number) => ({
+        sectors: (report.sectors || []).map((s: any, idx: number) => ({
           ...s,
           id: s.id || s.etf || s.name || `sec-${idx}`,
         })),
-        movers: ((latestReport as any).movers || []).map((m: any, idx: number) => ({
+        movers: (report.movers || []).map((m: any, idx: number) => ({
           ...m,
           id: m.id || m.ticker || `mover-${idx}`,
         })),
-        transmissions: (((latestReport as any).causalChains || (latestReport as any).transmissions || [])).map((t: any, idx: number) => ({
+        transmissions: ((report.causalChains || report.transmissions || [])).map((t: any, idx: number) => ({
           ...t,
           id: t.id || `trans-${idx}`,
         })),
-        aiReport: (latestReport as any).aiReport || {}
+        aiReport: report.aiReport || {}
       };
     }
-    return getHistoricalDataByDate(selectedDate) || HISTORICAL_MARKET_DATABASE[0];
+
+    return null;
   }, [selectedDate]);
 
-  // 从当前数据和历史数据中提取所选股票的详尽上下文
+  // 个股详情弹窗数据抽取
   const selectedStockData = useMemo<StockDetail | null>(() => {
-    if (!selectedStockTicker) return null;
-
-    // 1. 查找当天 movers
+    if (!selectedStockTicker || !currentDayData) return null;
     const mover = (currentDayData.movers || []).find(
       (m: any) => m.ticker.toUpperCase() === selectedStockTicker.toUpperCase()
     );
-
-    // 2. 查找板块成份股
     let sectorLeader: any = null;
     let sectorName = "";
     (currentDayData.sectors || []).forEach((sec: any) => {
@@ -152,9 +149,12 @@ export function App() {
     setIsStockModalOpen(true);
   };
 
+  if (!currentDayData) {
+    return <div className="min-h-screen bg-[#0a0a0a] text-slate-400 p-8 text-center">暂无该日期研报数据</div>;
+  }
+
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-slate-100 flex flex-col selection:bg-[#d4af37] selection:text-black">
-      {/* 顶部主导航栏 */}
       <Header
         selectedDate={selectedDate}
         onSelectDate={handleDateChange}
@@ -163,15 +163,11 @@ export function App() {
         onOpenPayloadModal={() => setIsPayloadModalOpen(true)}
       />
 
-      {/* 实时/盘后滚动行情指示条 */}
       <TickerBar currentDayData={currentDayData} onSelectStock={handleSelectStock} />
 
-      {/* 主体视口区域 */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        {/* 全局大盘与跨资产宏观透视 */}
         <MacroOverview macroData={currentDayData.macro} selectedDate={selectedDate} />
 
-        {/* 核心工作台标签页 */}
         {activeTab === "macro" && (
           <AiBriefingView
             data={currentDayData}
@@ -179,21 +175,18 @@ export function App() {
             onSwitchTab={setActiveTab}
           />
         )}
-
         {activeTab === "sectors" && (
           <SectorHeatmap
             sectors={currentDayData.sectors || []}
             onSelectStock={handleSelectStock}
           />
         )}
-
         {activeTab === "movers" && (
           <MoversScanner
             movers={currentDayData.movers || []}
             onSelectStock={handleSelectStock}
           />
         )}
-
         {activeTab === "transmissions" && (
           <CausalTransmissionView
             transmissions={currentDayData.transmissions || []}
@@ -201,26 +194,21 @@ export function App() {
           />
         )}
 
-        {/* AI 首席量化策略师对话助手 */}
         <div className="pt-4">
           <AnalystChat currentDayData={currentDayData} selectedDate={selectedDate} />
         </div>
       </main>
 
-      {/* 底部版权与免责声明 */}
       <footer className="border-t border-slate-900 bg-[#0d0d0d] py-6 px-4 text-center text-xs text-slate-500">
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-            <span>AI Macro-Quant Terminal · v2.5.0 Production Ready</span>
+            <span>AI Macro-Quant Terminal · 自动归档系统</span>
           </div>
-          <p>
-            声明：本系统由 Google Gemini 2.5 Pro / Flash 全自动化驱动，所有研报与传导链仅供参考，不构成任何投资买卖建议。
-          </p>
+          <p>声明：所有研报与传导链仅供参考，不构成任何投资建议。</p>
         </div>
       </footer>
 
-      {/* 个股深度研报弹窗 */}
       <StockDetailModal
         stock={selectedStockData}
         isOpen={isStockModalOpen}
@@ -228,7 +216,6 @@ export function App() {
         selectedDate={selectedDate}
       />
 
-      {/* Prompt Payload 架构与调试透明弹窗 */}
       <PromptPayloadModal
         isOpen={isPayloadModalOpen}
         onClose={() => setIsPayloadModalOpen(false)}
