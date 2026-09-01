@@ -1,4 +1,6 @@
-readme_content = """# 📈 AI-Stock-Report-Daily: 自动化每日股市AI复盘与研报生成工具
+
+```markdown
+# 📈 AI-Stock-Report-Daily: 自动化每日股市AI复盘与研报生成工具
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python Version](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/)
@@ -35,4 +37,67 @@ readme_content = """# 📈 AI-Stock-Report-Daily: 自动化每日股市AI复盘�
 ```bash
 git clone [https://github.com/caole13/AI-Stock-Report-Daily.git](https://github.com/caole13/AI-Stock-Report-Daily.git)
 cd AI-Stock-Report-Daily
-pip install -r requirements.txta
+pip install -r requirements.txt
+
+```
+
+### 2. 环境变量配置
+
+复制配置文件模板：
+
+```bash
+cp .env.example .env
+
+```
+
+编辑 `.env` 文件填入必要参数：
+
+```ini
+# 大模型 API 配置
+OPENAI_API_KEY=your_openai_or_deepseek_api_key
+OPENAI_BASE_URL=[https://api.deepseek.com/v1](https://api.deepseek.com/v1)
+MODEL_NAME=deepseek-chat
+
+# 行情数据源配置 (选填)
+TUSHARE_TOKEN=your_tushare_token
+
+# 消息通知 Webhook
+FEISHU_WEBHOOK=[https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxx](https://open.feishu.cn/open-apis/bot/v2/hook/xxxxxx)
+DINGTALK_WEBHOOK=[https://oapi.dingtalk.com/robot/send?access_token=xxxxxx](https://oapi.dingtalk.com/robot/send?access_token=xxxxxx)
+WECOM_WEBHOOK=[https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxx](https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=xxxxxx)
+
+```
+
+### 3. 本地运行测试
+
+```bash
+python main.py
+
+```
+
+---
+
+## ⏰ 自动化部署 (GitHub Actions)
+
+本项目支持通过 GitHub Actions 实现交易日收盘后的无服务器自动化运行：
+
+1. Fork 本仓库或推送到你的私有仓库。
+2. 进入仓库的 **Settings > Secrets and variables > Actions**。
+3. 点击 **New repository secret**，将 `.env` 中的变量（如 `OPENAI_API_KEY`、`FEISHU_WEBHOOK`）逐一添加。
+4. 默认工作流将在每个交易日收盘后（北京时间 15:30）自动运行。
+
+---
+
+## ⚠️ 免责声明
+
+本软件自动生成的所有报告与分析内容仅供学习交流与参考，不构成任何投资建议或交易依据。金融市场有风险，投资需独立审慎决策。
+
+---
+
+## 📄 开源协议
+
+本项目基于 [MIT License](https://www.google.com/search?q=LICENSE) 开源。
+
+```
+
+```
