@@ -29,7 +29,7 @@
 
 - **前端框架**: React 19 + TypeScript + Vite
 - **UI & 样式**: Tailwind CSS v4 + Lucide Icons + Recharts
-- **AI 引擎**: Google Gemini 2.5 (`@google/genai` SDK + Structured Outputs JSON Schema + Google Search Grounding)
+- **AI 引擎**: Google Gemini 3.6 (`@google/genai` SDK + Structured Outputs JSON Schema + Google Search Grounding)
 - **自动化运维**: GitHub Actions CI/CD Pipeline
 - **后端支持**: Express (API 代理与静态托管)
 
