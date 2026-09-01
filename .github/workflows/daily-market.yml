@@ -42,6 +42,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "没有新数据变动，跳过推送。"
           else
-            git commit -m "chore: auto update daily market report [skip ci]"
+            git commit -m "chore: auto update daily market report"
             git push
           fi
