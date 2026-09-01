@@ -7,9 +7,10 @@ import {
   Calendar,
   Code2,
 } from "lucide-react";
-import { AVAILABLE_DATES } from "../data/historicalData";
-import latestReport from "../data/latestReport.json";
 import { TabType } from "../types";
+
+// 1. 利用 Vite 自动加载 src/data/reports 下所有的 json 研报文件
+const reportsModules = import.meta.glob("../data/reports/*.json", { eager: true });
 
 interface HeaderProps {
   selectedDate: string;
@@ -26,22 +27,20 @@ export function Header({
   setActiveTab,
   onOpenPayloadModal,
 }: HeaderProps) {
-  // 1. 动态合并最新生成的 latestReport.json 日期，确保最新日期排在最前
+  // 2. 提取所有已生成的日期并按日期降序（最新日期排在最前）
   const allAvailableDates = useMemo(() => {
-    const list = [...AVAILABLE_DATES];
-    if (latestReport?.date) {
-      const exists = list.some((item) => item.date === latestReport.date);
-      if (!exists) {
-        list.unshift({
-          date: latestReport.date,
-          displayDate: `${latestReport.date} (最新研报)`,
-          weekday: "今日盘后",
-          tagline: (latestReport as any).tagline || (latestReport as any).marketStatus || "AI 策略师每日复盘",
-          marketTone: ((latestReport as any).marketTone || "震荡") as any,
-        });
+    const datesSet = new Set<string>();
+
+    Object.keys(reportsModules).forEach((path) => {
+      // 从路径中提取文件名如 "2026-09-01.json" -> "2026-09-01"
+      const match = path.match(/\/([^/]+)\.json$/);
+      if (match && match[1]) {
+        datesSet.add(match[1]);
       }
-    }
-    return list;
+    });
+
+    // 降序排序（如 2026-09-01, 2026-08-31, 2026-08-28 ...）
+    return Array.from(datesSet).sort((a, b) => b.localeCompare(a));
   }, []);
 
   const navItems = [
@@ -99,9 +98,8 @@ export function Header({
             })}
           </nav>
 
-          {/* Right: Date Picker & Payload Prompt Inspect */}
+          {/* Right: Date Picker */}
           <div className="flex items-center gap-2.5">
-            {/* Date Selector */}
             <div className="relative flex items-center">
               <div className="absolute left-2.5 pointer-events-none text-slate-400">
                 <Calendar className="w-3.5 h-3.5 text-[#d4af37]" />
@@ -111,15 +109,14 @@ export function Header({
                 onChange={(e) => onSelectDate(e.target.value)}
                 className="bg-[#141414] hover:bg-[#1a1a1a] text-slate-200 text-xs font-mono font-medium pl-8 pr-7 py-1.5 border border-slate-700 hover:border-[#d4af37]/60 rounded-sm appearance-none cursor-pointer focus:outline-none focus:border-[#d4af37] transition-all"
               >
-                {allAvailableDates.map((item) => (
-                  <option key={item.date} value={item.date} className="bg-[#141414] text-slate-200">
-                    {item.displayDate} ({item.weekday})
+                {allAvailableDates.map((dateStr) => (
+                  <option key={dateStr} value={dateStr} className="bg-[#141414] text-slate-200">
+                    {dateStr}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Prompt Payload Modal Button */}
             <button
               onClick={onOpenPayloadModal}
               title="查看后端 Gemini Prompt 架构与透明 Payload"
@@ -131,7 +128,7 @@ export function Header({
           </div>
         </div>
 
-        {/* Mobile Navigation Tabs */}
+        {/* Mobile Tabs */}
         <div className="flex md:hidden items-center justify-around border-t border-slate-850 py-2 gap-1 overflow-x-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
