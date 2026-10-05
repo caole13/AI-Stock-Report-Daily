@@ -8,8 +8,10 @@ import {
   ChevronUp,
   Flame,
   Info,
+  ExternalLink,
 } from "lucide-react";
 import { MacroAsset } from "../types";
+import { resolveStockVolumeData, analyzeVolume, getYahooFinanceUrl } from "../utils/volumeHelper";
 
 interface MacroOverviewProps {
   macroData: {
@@ -20,9 +22,14 @@ interface MacroOverviewProps {
     assets?: any[];
   };
   selectedDate: string;
+  onSelectStock?: (ticker: string) => void;
 }
 
-export const MacroOverview: React.FC<MacroOverviewProps> = ({ macroData, selectedDate }) => {
+export const MacroOverview: React.FC<MacroOverviewProps> = ({
+  macroData,
+  selectedDate,
+  onSelectStock,
+}) => {
   const [showFullInsight, setShowFullInsight] = useState(true);
 
   if (!macroData) return null;
@@ -116,40 +123,102 @@ export const MacroOverview: React.FC<MacroOverviewProps> = ({ macroData, selecte
         {items.map((item: MacroAsset, idx: number) => {
           const isPos = (item.changePercent !== undefined && item.changePercent !== null && item.changePercent > 0) || item.changePct?.startsWith("+") || item.trend === "up";
           const isNeg = (item.changePercent !== undefined && item.changePercent !== null && item.changePercent < 0) || item.changePct?.startsWith("-") || item.trend === "down";
-          const chartData = (item.sparkline || [item.price || item.currentValue || 100]).map((val, cIdx) => ({
-            idx: cIdx,
-            val,
-          }));
-          const minVal = Math.min(...chartData.map((d) => d.val)) * 0.995;
-          const maxVal = Math.max(...chartData.map((d) => d.val)) * 1.005;
+
+          const getAssetMeta = (t: string, n: string) => {
+            if (t.includes("USO") || n.includes("原油基金")) {
+              return { label: "原油ETF (跟踪期货)", tip: "标的为ETF基金(每份约$141)，非每桶原油单价", unit: "USD/股" };
+            }
+            if (t.includes("CL") || n.includes("WTI")) {
+              return { label: "WTI主力原油连续", tip: "轻质原油主力期货合约价格", unit: "USD/桶" };
+            }
+            if (t.includes("GC") || n.includes("黄金")) {
+              return { label: "COMEX黄金期货", tip: "纽约商品交易所黄金主力合约", unit: "USD/盎司" };
+            }
+            if (t.includes("TNX") || n.includes("美债")) {
+              return { label: "10年期基准国债", tip: "美国10年期国债基准收益率", unit: "%" };
+            }
+            if (t.includes("DXY") || t.includes("DX-Y") || n.includes("美元")) {
+              return { label: "ICE美元指数", tip: "美元对主要货币一篮子汇率指数", unit: "点" };
+            }
+            if (t.includes("SPX") || t.includes("GSPC") || n.includes("标普")) {
+              return { label: "标普500大盘", tip: "标准普尔500指数", unit: "点" };
+            }
+            if (t.includes("IXIC") || t.includes("NDX") || n.includes("纳指")) {
+              return { label: "纳斯达克综合", tip: "纳斯达克科技成长股风向标", unit: "点" };
+            }
+            return { label: item.description || "", tip: "", unit: item.unit || "USD" };
+          };
+
+          const meta = getAssetMeta(item.ticker || "", item.name || "");
+
+          // Unified macro asset volume & liquidity indicator
+          const numChange = item.changePercent !== undefined && item.changePercent !== null
+            ? item.changePercent
+            : (item.changePct ? parseFloat(String(item.changePct).replace("%", "")) : 0);
+
+          const volData = resolveStockVolumeData(
+            item.ticker || item.name,
+            undefined,
+            item.volume,
+            undefined,
+            numChange
+          );
+
+          const volInfo = analyzeVolume(
+            volData.rvol,
+            numChange,
+            volData.todayVol,
+            volData.avgVol,
+            volData.volumeUnit
+          );
 
           return (
             <div
               key={`${item.ticker || item.name || 'macro'}-${idx}`}
-              className="bg-[#121212] border border-slate-800 hover:border-slate-700 rounded-sm p-3.5 flex flex-col justify-between transition-all group shadow-sm"
+              onClick={() => onSelectStock?.(item.ticker || item.name)}
+              className="bg-[#121212] hover:bg-[#181818] border border-slate-800 hover:border-[#d4af37]/60 rounded-sm p-3 sm:p-3.5 flex flex-col justify-between transition-all group shadow-sm relative cursor-pointer active:scale-[0.99]"
+              title={`点击查看 ${item.name} 当日分时走势、成交量及成因归因`}
             >
               {/* Top: Name & Unit */}
-              <div className="flex items-center justify-between gap-1 mb-2">
+              <div className="flex items-center justify-between gap-1 mb-1">
                 <div className="flex items-center gap-1.5 min-w-0">
                   {getAssetIcon(item.ticker || item.name)}
-                  <span className="text-xs font-medium text-slate-200 truncate" title={item.name}>
+                  <span className="text-xs font-medium text-slate-200 group-hover:text-white truncate" title={item.name}>
                     {item.name}
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-400 font-mono shrink-0">
+                <span className="text-[10px] text-slate-400 group-hover:text-[#d4af37] font-mono shrink-0 transition-colors">
                   {item.ticker}
+                </span>
+              </div>
+
+              {/* Sub-label for clarity + Volume Badge */}
+              <div className="flex items-center justify-between gap-1 mb-1.5">
+                <div className="text-[10px] text-[#d4af37]/80 truncate font-mono" title={meta.tip}>
+                  {meta.label}
+                </div>
+                <span
+                  className={`text-[9px] font-mono px-1.5 py-0.5 rounded border shrink-0 ${
+                    volInfo.isExpansion
+                      ? "bg-emerald-950/60 text-emerald-400 border-emerald-800/40"
+                      : volInfo.isContraction
+                      ? "bg-amber-950/40 text-amber-300 border-amber-800/40"
+                      : "bg-slate-850 text-slate-400 border-slate-750"
+                  }`}
+                >
+                  {volInfo.badgeLabel}
                 </span>
               </div>
 
               {/* Middle: Price & Change */}
               <div className="my-1">
-                <div className="text-lg font-bold font-mono tracking-tight text-white">
+                <div className="text-lg font-bold font-mono tracking-tight text-white flex items-baseline">
                   {(item.currentValue ?? item.price ?? 0).toLocaleString(undefined, {
                     minimumFractionDigits: (item.currentValue ?? item.price ?? 0) < 10 ? 2 : 2,
                     maximumFractionDigits: 2,
                   })}
-                  <span className="text-[10px] text-slate-400 ml-1 font-normal">
-                    {item.unit || ""}
+                  <span className="text-[10px] text-slate-400 ml-1 font-normal font-sans">
+                    {item.unit || meta.unit}
                   </span>
                 </div>
 
@@ -169,31 +238,24 @@ export const MacroOverview: React.FC<MacroOverviewProps> = ({ macroData, selecte
                 </div>
               </div>
 
-              {/* Sparkline Visual (SVG Lightweight) */}
-              <div className="h-6 w-full mt-2 pt-1 border-t border-slate-850 flex items-end">
-                <svg className="w-full h-full overflow-visible" preserveAspectRatio="none" viewBox={`0 0 ${chartData.length - 1 || 1} 20`}>
-                  <path
-                    d={chartData.reduce((acc, point, i) => {
-                      const x = i;
-                      const range = maxVal - minVal || 1;
-                      const y = 20 - ((point.val - minVal) / range) * 18;
-                      return `${acc} ${i === 0 ? "M" : "L"} ${x} ${y}`;
-                    }, "")}
-                    fill="none"
-                    stroke={isPos ? "#10b981" : isNeg ? "#f43f5e" : "#94a3b8"}
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
+              {/* Bottom Insight Tag & Click Affordance */}
+              <div className="mt-2.5 pt-2 border-t border-slate-850/60 flex items-center justify-between text-[10px]">
+                <a
+                  href={getYahooFinanceUrl(item.ticker || item.name)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="text-[#d8b4fe] hover:text-white font-mono flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-[#6001d2]/20 hover:bg-[#6001d2]/35 border border-[#7b1fa2]/40 transition-colors"
+                  title={`在 Yahoo Finance 打开 ${item.name} 行情`}
+                >
+                  <span>Yahoo</span>
+                  <ExternalLink className="w-2.5 h-2.5" />
+                </a>
+                <span className="text-[#d4af37]/80 group-hover:text-[#d4af37] font-mono flex items-center gap-0.5 font-medium transition-colors">
+                  <span>走势与归因</span>
+                  <span>&gt;</span>
+                </span>
               </div>
-
-              {/* Bottom Insight Tag */}
-              {item.description && (
-                <div className="mt-2 text-[10px] text-slate-400 line-clamp-1 group-hover:line-clamp-none transition-all">
-                  {item.description}
-                </div>
-              )}
             </div>
           );
         })}

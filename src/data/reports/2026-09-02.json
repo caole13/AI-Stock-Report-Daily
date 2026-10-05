@@ -23,29 +23,29 @@
         "name": "美国原油基金ETF",
         "ticker": "USO",
         "trend": "up",
-        "changePct": null,
-        "price": 141.2
+        "changePct": "+0.11%",
+        "price": 141.15
       },
       {
         "name": "COMEX黄金",
         "ticker": "GC=F",
-        "trend": "down",
-        "changePct": "-2.33%",
-        "price": 4377.1
+        "trend": "up",
+        "changePct": "+1.31%",
+        "price": 4472.50
       },
       {
         "name": "10年期美债",
         "ticker": "^TNX",
-        "trend": "up",
-        "changePct": "+0.15%",
-        "price": 4.8
+        "trend": "neutral",
+        "changePct": "+0.00%",
+        "price": 4.80
       },
       {
         "name": "美元指数",
         "ticker": "DXY",
-        "trend": "neutral",
-        "changePct": "-0.08%",
-        "price": 99.56
+        "trend": "down",
+        "changePct": "-0.35%",
+        "price": 99.25
       }
     ]
   },
@@ -79,18 +79,33 @@
       "leaders": [
         {
           "ticker": "NVDA",
+          "name": "英伟达",
+          "price": 224.41,
           "catalyst": "AI算力需求强劲及行业生态扩张【资金轮动，财报超预期延伸】",
-          "changePct": "+3.21%"
+          "changePct": "+3.21%",
+          "volume": 155979384,
+          "avgVolume": 137131785,
+          "rvol": "1.14x"
         },
         {
           "ticker": "MSFT",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": "-0.57%"
+          "name": "微软",
+          "price": 496.82,
+          "catalyst": "【纯技术面/资金轮动，无突发公告】资金阶段性由软件SaaS向半导体硬件端轮动。",
+          "changePct": "-0.84%",
+          "volume": 15280048,
+          "avgVolume": 37469084,
+          "rvol": "0.41x"
         },
         {
           "ticker": "AAPL",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": "-0.19%"
+          "name": "苹果公司",
+          "price": 324.96,
+          "catalyst": "【纯技术面/资金轮动，无突发公告】新品发布会前夕市场交投情绪趋于谨慎观望。",
+          "changePct": "-0.05%",
+          "volume": 33660931,
+          "avgVolume": 55022364,
+          "rvol": "0.61x"
         }
       ]
     },
@@ -100,13 +115,23 @@
       "leaders": [
         {
           "ticker": "LLY",
+          "name": "礼来制药",
+          "price": 1160.08,
           "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": "+0.15%"
+          "changePct": "+0.01%",
+          "volume": 2441157,
+          "avgVolume": 2894856,
+          "rvol": "0.84x"
         },
         {
           "ticker": "UNH",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": null
+          "name": "联合健康",
+          "price": 399.66,
+          "catalyst": "【纯技术面/资金轮动，无突发公告】医疗服务综合赔付率保持平稳",
+          "changePct": "+0.85%",
+          "volume": 3261743,
+          "avgVolume": 5585101,
+          "rvol": "0.58x"
         }
       ]
     },
@@ -116,13 +141,23 @@
       "leaders": [
         {
           "ticker": "AMZN",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": "+0.17%"
+          "name": "亚马逊",
+          "price": 254.98,
+          "catalyst": "【纯技术面/资金轮动，无突发公告】电商与云服务收入预期平稳，多空拉锯。",
+          "changePct": "+0.02%",
+          "volume": 23785257,
+          "avgVolume": 48753017,
+          "rvol": "0.49x"
         },
         {
           "ticker": "TSLA",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": "+0.26%"
+          "name": "特斯拉",
+          "price": 357.01,
+          "catalyst": "【纯技术面/资金轮动，无突发公告】FSD与Robotaxi落地进展获长期资金关注。",
+          "changePct": "+0.26%",
+          "volume": 33758963,
+          "avgVolume": 41475572,
+          "rvol": "0.81x"
         }
       ]
     },
@@ -132,13 +167,23 @@
       "leaders": [
         {
           "ticker": "XOM",
+          "name": "埃克森美孚",
+          "price": 164.15,
           "catalyst": "中东局势恶化及EIA原油库存大幅超预期下降445万桶",
-          "changePct": null
+          "changePct": "-0.24%",
+          "volume": 11279808,
+          "avgVolume": 15623222,
+          "rvol": "0.72x"
         },
         {
           "ticker": "JPM",
-          "catalyst": "【纯技术面/资金轮动，无突发公告】",
-          "changePct": "+0.34%"
+          "name": "摩根大通",
+          "price": 356.22,
+          "catalyst": "【纯技术面/资金轮动，无突发公告】净利息收入预期平稳，资本充足率处于健康水位。",
+          "changePct": "+0.36%",
+          "volume": 5336079,
+          "avgVolume": 8351493,
+          "rvol": "0.64x"
         }
       ]
     }
@@ -148,34 +193,43 @@
       "ticker": "DELL",
       "name": "戴尔科技",
       "sector": "科技成长",
+      "price": 492.20,
       "newsAttribution": "公布强劲第二财季业绩，AI服务器订单超预期爆发，带动全天股价暴涨近16%",
       "shortTermOutlook": "高位高量突破，短期或有获利盘震荡消化，但多头趋势明确",
       "midTermLogic": "企业级AI基础设施升级潮的最大直接受益者之一",
-      "invalidationLevel": "$130.00",
-      "changePct": "+15.80%",
-      "rvol": "3.5"
+      "invalidationLevel": "$450.00",
+      "changePct": "+15.81%",
+      "volume": 36411468,
+      "avgVolume": 7163582,
+      "rvol": "5.08"
     },
     {
       "ticker": "GTLB",
       "name": "GitLab Inc",
       "sector": "科技成长",
+      "price": 49.59,
       "newsAttribution": "第二财季业绩超预期且上调全年业绩指引，股价强势大涨近10%",
       "shortTermOutlook": "底部放量大阳线，形成强有力短期筑底信号",
       "midTermLogic": "DevSecOps平台AI功能赋能提升客单价与订阅留存率",
-      "invalidationLevel": "$50.00",
-      "changePct": "+9.80%",
-      "rvol": "2.8"
+      "invalidationLevel": "$45.00",
+      "changePct": "+9.98%",
+      "volume": 28957521,
+      "avgVolume": 4905920,
+      "rvol": "5.90"
     },
     {
       "ticker": "AVGO",
       "name": "博通",
       "sector": "科技成长",
-      "newsAttribution": "盘后公布第三财季营收达295.9亿美元，AI芯片业务翻三倍，但第四财季指引略逊于极端乐观预期",
+      "price": 367.24,
+      "newsAttribution": "公布第三财季营收达295.9亿美元，AI芯片业务翻三倍，但第四财季指引略逊于极端乐观预期",
       "shortTermOutlook": "盘后出现温和获利回吐，关注次日开盘关键支撑位企稳情况",
       "midTermLogic": "定制化AI芯片(ASIC)与网络交换芯片构筑强劲双轮驱动",
       "invalidationLevel": "$350.00",
       "changePct": "-0.66%",
-      "rvol": "1.5"
+      "volume": 30822042,
+      "avgVolume": 24976037,
+      "rvol": "1.23"
     }
   ],
   "causalChains": [

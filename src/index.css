@@ -41,3 +41,24 @@
   background: #3f3f46;
 }
 
+/* Continuous Market Ticker Tape Animation */
+@keyframes tickerTape {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(-50%, 0, 0);
+  }
+}
+
+.animate-ticker {
+  display: inline-flex;
+  width: max-content;
+  animation: tickerTape 38s linear infinite;
+  will-change: transform;
+}
+
+.animate-ticker:hover {
+  animation-play-state: paused;
+}
+

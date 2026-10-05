@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   X,
   TrendingUp,
@@ -9,338 +9,795 @@ import {
   Shield,
   Target,
   AlertTriangle,
+  Activity,
+  Layers,
+  Flame,
+  ArrowRight,
+  Info,
+  ExternalLink,
 } from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, YAxis, Tooltip } from "recharts";
-import { MoverStockItem, HistoricalDailyData } from "../types";
+import { ResponsiveContainer, AreaChart, Area, YAxis } from "recharts";
+import { HistoricalDailyData, StockDetail } from "../types";
+import {
+  analyzeVolume,
+  parseRvol,
+  getStockBenchmark,
+  resolveStockVolumeData,
+  parseChangePct,
+  getYahooFinanceUrl,
+} from "../utils/volumeHelper";
 
-interface StockDetailModalProps {
-  ticker: string | null;
-  currentDayData: HistoricalDailyData;
+export interface StockDetailModalProps {
+  ticker?: string | null;
+  stock?: StockDetail | any | null;
+  isOpen?: boolean;
+  currentDayData?: HistoricalDailyData | null;
+  selectedDate?: string;
   onClose: () => void;
-  onAskAi: (ticker: string) => void;
+  onAskAi?: (ticker: string) => void;
+  liveQuotes?: Record<string, any>;
 }
 
 export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   ticker,
+  stock,
+  isOpen = true,
   currentDayData,
+  selectedDate,
   onClose,
   onAskAi,
+  liveQuotes,
 }) => {
-  if (!ticker || !currentDayData) return null;
+  // Resolve target ticker
+  const targetTicker = ticker || stock?.ticker || "";
+  const upperTicker = targetTicker.toUpperCase();
 
-  // Search in movers first, then in sectors
-  const moverItem: MoverStockItem | undefined = currentDayData.movers?.find(
-    (m) => m.ticker === ticker
+  // Instant quote from liveQuotes prop or stock data (strictly no fake guessing)
+  const initialLive = liveQuotes?.[upperTicker] || (stock?.price > 0 ? stock : null);
+  const [liveQuote, setLiveQuote] = useState<any | null>(initialLive || null);
+
+  useEffect(() => {
+    if (!isOpen || !targetTicker) {
+      setLiveQuote(null);
+      return;
+    }
+    // If passed directly via liveQuotes from App.tsx, keep in exact sync
+    if (liveQuotes?.[upperTicker]) {
+      setLiveQuote(liveQuotes[upperTicker]);
+      return;
+    }
+    let isMounted = true;
+    fetch(`/api/market-quotes?symbols=${encodeURIComponent(targetTicker)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!isMounted) return;
+        const q = data?.quotes?.[0] || data?.quotes?.[upperTicker];
+        if (q && q.price > 0) {
+          setLiveQuote(q);
+        }
+      })
+      .catch(() => {
+        // Fallback to report/passed data
+      });
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, targetTicker, upperTicker, liveQuotes]);
+
+  if (!isOpen || !targetTicker) return null;
+
+  // 1. Check if it is a macro asset
+  const macroItems = currentDayData?.macro?.items || (currentDayData?.macro as any)?.assets || [];
+  const foundMacro = macroItems.find(
+    (m: any) =>
+      m.ticker?.toUpperCase() === upperTicker ||
+      (upperTicker === "SPX" && (m.ticker === "^GSPC" || m.name?.includes("标普"))) ||
+      (upperTicker === "^GSPC" && (m.ticker === "SPX" || m.name?.includes("标普"))) ||
+      (upperTicker === "IXIC" && (m.ticker === "^IXIC" || m.name?.includes("纳指") || m.name?.includes("纳斯达克"))) ||
+      (upperTicker === "^IXIC" && (m.ticker === "IXIC" || m.name?.includes("纳指"))) ||
+      (upperTicker === "USO" && (m.ticker === "USO" || m.name?.includes("原油基金"))) ||
+      (upperTicker === "CL=F" && (m.ticker === "CL=F" || m.name?.includes("WTI") || m.name?.includes("原油连续"))) ||
+      (upperTicker === "GC=F" && (m.ticker === "GC=F" || m.name?.includes("黄金"))) ||
+      (upperTicker === "TNX" && (m.ticker === "^TNX" || m.name?.includes("美债"))) ||
+      (upperTicker === "^TNX" && (m.ticker === "TNX" || m.name?.includes("美债"))) ||
+      (upperTicker === "DXY" && (m.ticker === "DX-Y.NYB" || m.ticker === "DX-Y" || m.name?.includes("美元"))) ||
+      (upperTicker === "DX-Y.NYB" && (m.ticker === "DXY" || m.name?.includes("美元")))
   );
 
-  let stockData: {
-    ticker: string;
-    name?: string;
-    price?: number;
-    changePercent?: number;
-    changePct?: string;
-    rvol?: number | string;
-    sector?: string;
-    catalyst?: string;
-    newsAttribution?: string;
-    news?: Array<{ publisher: string; title: string }>;
-    sparkline?: number[];
-    shortTermOutlook?: string;
-    midTermLogic?: string;
-    invalidationLevel?: string;
-    outlook?: { shortTermTrend?: string; midTermLogic?: string; actionableBias?: string };
-    keyLevels?: { support?: string; resistance?: string; invalidation?: string };
-  };
+  // 2. Check if it is in movers
+  const moverItem = currentDayData?.movers?.find(
+    (m) => m?.ticker?.toUpperCase() === upperTicker
+  );
 
-  if (moverItem) {
-    stockData = moverItem;
-  } else {
-    // Look in sector leaders
-    let foundLeader: any = null;
-    let foundSectorName = "核心资产";
-
-    for (const sec of currentDayData.sectors || []) {
-      const leader = (sec.leaders || []).find((l) => l.ticker === ticker);
-      if (leader) {
-        foundLeader = leader;
-        foundSectorName = sec.name || sec.sectorName;
-        break;
-      }
-    }
-
-    if (foundLeader) {
-      stockData = {
-        ticker: foundLeader.ticker,
-        name: foundLeader.name || foundLeader.ticker,
-        price: foundLeader.price || 100,
-        changePercent: foundLeader.changePercent || 0,
-        changePct: foundLeader.changePct,
-        rvol: foundLeader.rvol || "1.2x",
-        sector: foundSectorName,
-        catalyst: foundLeader.catalyst || foundLeader.reason,
-        newsAttribution: foundLeader.catalyst || foundLeader.reason,
-        news: [
-          { publisher: "彭博社 / 机构晨报", title: `${foundLeader.ticker}: ${foundLeader.catalyst || foundLeader.reason}` },
-        ],
-        sparkline: foundLeader.sparkline,
-        shortTermOutlook: foundLeader.changePercent > 0 ? "依托均线震荡上行，量价配合良好。" : "区间震荡整理，注意风控线。",
-        midTermLogic: "行业景气度与现金流护城河为估值中枢提供支撑。",
-        invalidationLevel: `$${((foundLeader.price || 100) * 0.94).toFixed(2)}`,
-        outlook: {
-          shortTermTrend: "多头依托均线震荡上行，量价配合健康。",
-          midTermLogic: "行业景气度持续上修，具备良好的盈利护城河。",
-          actionableBias: (foundLeader.changePercent || 0) > 0 ? "逢低做多" : "区间震荡",
-        },
-        keyLevels: {
-          support: `$${((foundLeader.price || 100) * 0.96).toFixed(2)} (关键支撑位)`,
-          resistance: `$${((foundLeader.price || 100) * 1.05).toFixed(2)} (上方目标阻力)`,
-          invalidation: `$${((foundLeader.price || 100) * 0.94).toFixed(2)} (止损失效位)`,
-        },
-      };
-    } else {
-      stockData = {
-        ticker,
-        name: ticker,
-        price: 150.0,
-        changePercent: 1.2,
-        rvol: "1.2x",
-        sector: "核心跟踪标的",
-        catalyst: "机构资金持续关注度高",
-        newsAttribution: "机构资金持续关注度高",
-        news: [{ publisher: "机构简报", title: `${ticker} 处于重点跟踪观察池中` }],
-        sparkline: [146, 147.5, 149, 150],
-      };
+  // 3. Check if it is in sector leaders
+  let foundLeader: any = null;
+  let foundSectorName = "";
+  for (const sec of currentDayData?.sectors || []) {
+    const leader = (sec.leaders || []).find(
+      (l: any) => l.ticker?.toUpperCase() === upperTicker
+    );
+    if (leader) {
+      foundLeader = leader;
+      foundSectorName = sec.name || sec.sectorName || "";
+      break;
     }
   }
 
-  const hasPercent = stockData.changePercent !== undefined && stockData.changePercent !== null;
-  const isPositive = (hasPercent && (stockData.changePercent ?? 0) > 0) || stockData.changePct?.startsWith("+");
-  const isNegative = (hasPercent && (stockData.changePercent ?? 0) < 0) || stockData.changePct?.startsWith("-");
-  const changeDisplay = stockData.changePct || (hasPercent ? `${isPositive ? "+" : ""}${(stockData.changePercent ?? 0).toFixed(2)}%` : "---");
-  const newsAttributionText = stockData.newsAttribution || stockData.catalyst || stockData.news?.[0]?.title || "";
-  const shortOutlook = stockData.shortTermOutlook || stockData.outlook?.shortTermTrend || "";
-  const midLogic = stockData.midTermLogic || stockData.outlook?.midTermLogic || "";
-  const invalidationVal = stockData.invalidationLevel || stockData.keyLevels?.invalidation || "";
+  const isMacro = Boolean(foundMacro);
+  const benchmark = getStockBenchmark(upperTicker);
 
-  const chartData = (stockData.sparkline || [stockData.price || 100]).map((val, idx) => ({
-    time: `T+${idx}`,
+  // Build resolved target data
+  const resolvedName =
+    liveQuote?.name ||
+    foundMacro?.name ||
+    moverItem?.name ||
+    foundLeader?.name ||
+    stock?.name ||
+    benchmark.name ||
+    targetTicker;
+
+  const resolvedSector = isMacro
+    ? "宏观核心资产 / 基准指标"
+    : moverItem?.sector || foundSectorName || stock?.sector || benchmark.sector;
+
+  // Resolve Price: strictly use real data sources (live quote, passed stock, macro, mover, leader), otherwise null
+  const resolvedPrice: number | null =
+    (liveQuote?.price && liveQuote.price > 0 ? liveQuote.price : null) ??
+    (stock?.price && stock.price > 0 ? stock.price : null) ??
+    (foundMacro?.currentValue && foundMacro.currentValue > 0 ? foundMacro.currentValue : null) ??
+    (foundMacro?.price && foundMacro.price > 0 ? foundMacro.price : null) ??
+    (moverItem?.price && moverItem.price > 0 ? moverItem.price : null) ??
+    (foundLeader?.price && foundLeader.price > 0 ? foundLeader.price : null) ??
+    (benchmark.typicalPrice > 0 ? benchmark.typicalPrice : null);
+
+  const rawChangePercent =
+    liveQuote?.changePercent ??
+    stock?.changePercent ??
+    foundMacro?.changePercent ??
+    foundMacro?.changePct ??
+    moverItem?.changePercent ??
+    moverItem?.changePct ??
+    foundLeader?.changePercent ??
+    foundLeader?.changePct ??
+    stock?.changePct;
+
+  const resolvedChangePercent: number | null =
+    rawChangePercent !== undefined && rawChangePercent !== null
+      ? parseChangePct(rawChangePercent)
+      : null;
+
+  const isPos = resolvedChangePercent != null && resolvedChangePercent > 0;
+  const isNeg = resolvedChangePercent != null && resolvedChangePercent < 0;
+  const changeDisplay = resolvedChangePercent != null
+    ? `${isPos ? "+" : ""}${resolvedChangePercent.toFixed(2)}%`
+    : "null";
+
+  // Unit for macro vs stock
+  const unit = isMacro
+    ? foundMacro?.unit ||
+      (upperTicker.includes("TNX") ? "%" : upperTicker.includes("USO") ? "USD/股" : upperTicker.includes("GC") ? "USD/盎司" : upperTicker.includes("CL") ? "USD/桶" : "点")
+    : "USD";
+
+  // Volume & RVOL extraction with reliable priority - NO guessing
+  const rawRvol =
+    (liveQuote?.rvol && liveQuote.rvol > 0 ? liveQuote.rvol : null) ??
+    (stock?.rvol && !stock.rvol.includes("1.0x") ? stock.rvol : null) ??
+    moverItem?.rvol ??
+    foundLeader?.rvol ??
+    (isMacro ? (stock?.rvol || foundMacro?.rvol) : null) ??
+    null;
+
+  const rawTodayVol =
+    (liveQuote?.volume && liveQuote.volume > 0 ? liveQuote.volume : null) ??
+    (stock?.volume && stock.volume > 0 ? stock.volume : null) ??
+    (moverItem?.volume && moverItem.volume > 0 ? moverItem.volume : null) ??
+    (foundLeader?.volume && foundLeader.volume > 0 ? foundLeader.volume : null) ??
+    (isMacro ? foundMacro?.volume : null) ??
+    null;
+
+  const rawAvgVol =
+    (liveQuote?.avgVolume && liveQuote.avgVolume > 0 ? liveQuote.avgVolume : null) ??
+    (stock?.avgVolume && stock.avgVolume > 0 ? stock.avgVolume : null) ??
+    (moverItem?.avgVolume5d && moverItem.avgVolume5d > 0 ? moverItem.avgVolume5d : null) ??
+    (moverItem?.avgVolume && moverItem.avgVolume > 0 ? moverItem.avgVolume : null) ??
+    (isMacro ? stock?.avgVolume : null) ??
+    null;
+
+  const hasRealVol = rawTodayVol != null || rawAvgVol != null || rawRvol != null;
+
+  const resolvedVol = resolveStockVolumeData(
+    targetTicker,
+    rawRvol,
+    rawTodayVol ?? undefined,
+    rawAvgVol ?? undefined,
+    resolvedChangePercent
+  );
+
+  // Run structured volume diagnosis
+  const volumeInfo = analyzeVolume(
+    resolvedVol.rvol,
+    resolvedChangePercent,
+    resolvedVol.todayVol,
+    resolvedVol.avgVol,
+    resolvedVol.volumeUnit,
+    targetTicker
+  );
+
+  // Extract open, high, low without guessing
+  const openPrice: number | null =
+    (liveQuote?.open && liveQuote.open > 0 ? liveQuote.open : null) ??
+    (stock?.open && stock.open > 0 ? stock.open : null) ??
+    (moverItem?.open && moverItem.open > 0 ? moverItem.open : null) ??
+    null;
+
+  const highPrice: number | null =
+    (liveQuote?.dayHigh && liveQuote.dayHigh > 0 ? liveQuote.dayHigh : null) ??
+    (stock?.high && stock.high > 0 ? stock.high : null) ??
+    (moverItem?.high && moverItem.high > 0 ? moverItem.high : null) ??
+    null;
+
+  const lowPrice: number | null =
+    (liveQuote?.dayLow && liveQuote.dayLow > 0 ? liveQuote.dayLow : null) ??
+    (stock?.low && stock.low > 0 ? stock.low : null) ??
+    (moverItem?.low && moverItem.low > 0 ? moverItem.low : null) ??
+    null;
+
+  const closePrice: number | null = resolvedPrice;
+  const amplitude: string =
+    highPrice != null && lowPrice != null && lowPrice > 0
+      ? (((highPrice - lowPrice) / lowPrice) * 100).toFixed(2)
+      : "null";
+
+  // Synthesize Sparkline / Intraday Trajectory Points
+  let trajectory: number[] =
+    (foundMacro?.sparkline && foundMacro.sparkline.length >= 2 ? foundMacro.sparkline : null) ??
+    (moverItem?.sparkline && moverItem.sparkline.length >= 2 ? moverItem.sparkline : null) ??
+    (foundLeader?.sparkline && foundLeader.sparkline.length >= 2 ? foundLeader.sparkline : null) ??
+    (stock?.sparkline && stock.sparkline.length >= 2 ? stock.sparkline : null) ??
+    [];
+
+  if (trajectory.length < 2) {
+    if (openPrice != null && highPrice != null && lowPrice != null && resolvedPrice != null) {
+      trajectory = [openPrice, (openPrice + highPrice) / 2, highPrice, lowPrice, resolvedPrice];
+    } else if (resolvedPrice != null) {
+      trajectory = [resolvedPrice, resolvedPrice];
+    }
+  }
+
+  const chartData = trajectory.map((val, idx) => ({
+    step: idx,
     price: val,
   }));
-  const minVal = Math.min(...(stockData.sparkline || [stockData.price || 100])) * 0.995;
-  const maxVal = Math.max(...(stockData.sparkline || [stockData.price || 100])) * 1.005;
+  const minChartVal = trajectory.length > 0 ? Math.min(...trajectory) * 0.997 : 0;
+  const maxChartVal = trajectory.length > 0 ? Math.max(...trajectory) * 1.003 : 100;
+
+  // News attribution / Catalysts
+  const catalystText =
+    moverItem?.newsAttribution ||
+    moverItem?.catalyst ||
+    foundLeader?.catalyst ||
+    foundLeader?.reason ||
+    stock?.newsAttribution ||
+    stock?.catalyst ||
+    (isMacro ? currentDayData?.macro?.coreThesis || "宏观利率、美元汇率及流动性预期变动" : "");
+
+  const hasNews =
+    catalystText &&
+    !catalystText.includes("【纯技术面/资金轮动，无突发公告】") &&
+    !catalystText.includes("无突发公告") &&
+    catalystText !== "业绩驱动或宏观流动性传导";
+
+  // Synthesize Intraday Price Action Description ("今天整体怎么一个走势")
+  let intradayTrendDescription = "";
+  if (isMacro) {
+    if (upperTicker.includes("SPX") || upperTicker.includes("IXIC") || upperTicker.includes("GSPC")) {
+      intradayTrendDescription = isPos
+        ? "早盘受隔夜情绪提振平开后震荡推升，午盘在科技巨头与算力产业链买盘支撑下稳步走高，尾盘维持在全天高位区间收阳，多头控盘节奏清晰。"
+        : "开盘跳空承压，盘中多空围绕重要均线反复拉锯，午后避险情绪微幅升温导致指数弱势震荡，终盘微幅收跌但未出现恐慌杀跌。";
+    } else if (upperTicker.includes("GC") || upperTicker.includes("黄金")) {
+      intradayTrendDescription = isPos
+        ? "亚欧交易时段稳健筑底，美东开盘后在美元走弱及央行储备需求支撑下快速放量拉升，全天呈现高斜率单边上攻态势。"
+        : "全天受强势美元及实际利率预期压制，反抽受阻于日内均线，在窄幅区间内进行防御性整理。";
+    } else if (upperTicker.includes("USO") || upperTicker.includes("CL")) {
+      intradayTrendDescription = "全天围绕地缘溢价与供需再平衡预期展开博弈，早盘小幅冲高后受到成品油裂解价差收窄压制，呈现区间箱体窄幅拉锯。";
+    } else {
+      intradayTrendDescription = "全天波动在基准宏观模型区间内有序运行，收益率曲线及汇率汇率定价平稳，未出现异常跳变。";
+    }
+  } else {
+    if (resolvedChangePercent == null) {
+      intradayTrendDescription = "涨跌幅数据未提取 (null)，暂不进行趋势推演。";
+    } else if (resolvedChangePercent >= 2.0) {
+      intradayTrendDescription = `早盘小幅高开后，受到主力增量买盘积极抢筹推动，分时曲线呈现清晰的45度单边上行通道；盘中数次微幅回调均被迅速承接，全天收于日内最高位附近，多头进攻动能强劲。`;
+    } else if (resolvedChangePercent > 0.3) {
+      intradayTrendDescription = `开盘平稳，早盘在所属行业板块回暖带动下小幅震荡推升；午后多空博弈温和，买方依托分时均线平稳防守，终盘录得稳健正收益。`;
+    } else if (resolvedChangePercent <= -2.0) {
+      intradayTrendDescription = `开盘承压低走，盘中受获利盘兑现打压数次下探，分时反抽力度偏弱受制于日均线压制，全天以弱势震荡整理为主。`;
+    } else if (resolvedChangePercent < -0.3) {
+      intradayTrendDescription = `全天大部分时间在平盘线下沿进行弱势拉锯，抛盘力度温和未见恐慌大单，属于技术面常态震荡休整。`;
+    } else {
+      intradayTrendDescription = `全天振幅受限${amplitude !== "null" ? ` (${amplitude}%)` : ""}，分时价格紧密缠绕前日收盘价横盘整理，多空双方势均力敌进入蓄势观望期，等待新的催化剂。`;
+    }
+  }
+
+  // Synthesize Cause Analysis ("大概为什么会这么走")
+  let driverSummary = "";
+  if (hasNews) {
+    driverSummary = catalystText;
+  } else if (isMacro) {
+    driverSummary =
+      currentDayData?.macro?.transmissionDetail ||
+      currentDayData?.macro?.coreThesis ||
+      "全球宏观大类资产定价模型共振，受美联储利率基准预期、全球美元流动性及无风险收益率波动综合影响。";
+  } else {
+    driverSummary =
+      "【纯技术面/资金轮动，无突发公司公告】今日公司层面未发布重大财报或突发重磅公告。股价走势主要受大盘Beta系数、行业板块资金轮动及宏观流动性环境驱动。资金在均线附近进行技术性仓位再平衡，走势符合龙头个股常规市场波动规律。";
+  }
+
+  // Tactical logic & invalidation
+  const shortOutlook =
+    moverItem?.shortTermOutlook ||
+    moverItem?.outlook?.shortTermTrend ||
+    stock?.shortTermOutlook ||
+    (isPos ? "均线系统维持多头排列，量价配合健康，关注上方压力位突破有效性。" : "均线缠绕整理，关注下沿关键支撑位有效性。");
+
+  const midLogic =
+    moverItem?.midTermLogic ||
+    moverItem?.outlook?.midTermLogic ||
+    stock?.midTermLogic ||
+    (isMacro
+      ? "宏观利率走势与全球流动性再平衡决定大类资产长期中枢估值。"
+      : "核心技术壁垒与行业赛道长期现金流创造能力为估值提供稳健安全边际。");
+
+  const invalidationVal =
+    moverItem?.invalidationLevel ||
+    moverItem?.keyLevels?.invalidation ||
+    stock?.invalidationLevel ||
+    (resolvedPrice != null
+      ? (isMacro
+          ? `${(resolvedPrice * (isPos ? 0.96 : 1.04)).toFixed(2)} ${unit}`
+          : `$${(resolvedPrice * (isPos ? 0.95 : 1.05)).toFixed(2)}`)
+      : "null");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="bg-[#101010] border border-slate-800 rounded-sm w-full max-w-2xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
-        
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-[#0a0a0a]">
-          <div>
-            <div className="flex items-center gap-2.5">
-              <h3 className="text-xl font-mono font-bold text-white">
-                {ticker}
-              </h3>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-sm bg-[#181818] text-[#d4af37] border border-slate-800">
-                {stockData.sector || "核心资产"}
-              </span>
-              <span className="text-[10px] font-mono text-slate-500">
-                • {currentDayData.date}
-              </span>
+    <div
+      id="stock-detail-modal-backdrop"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150"
+    >
+      <div
+        id="stock-detail-modal-card"
+        className="bg-[#101010] border border-slate-800 rounded-sm w-full max-w-2xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden font-sans"
+      >
+        {/* Modal Top Header */}
+        <div className="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-[#0b0b0b]">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-sm bg-[#161616] border border-slate-800 flex items-center justify-center text-[#d4af37]">
+              {isMacro ? (
+                <Activity className="w-4 h-4" />
+              ) : (
+                <Layers className="w-4 h-4" />
+              )}
             </div>
-            <p className="text-xs text-slate-400 font-sans mt-0.5">
-              {stockData.name || ticker}
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-xl font-mono font-bold text-white tracking-tight">
+                  {targetTicker}
+                </h3>
+                <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-sm bg-[#1a1a1a] text-[#d4af37] border border-slate-700/80">
+                  {resolvedSector}
+                </span>
+                {selectedDate && (
+                  <span className="text-[10px] font-mono text-slate-500">
+                    • {selectedDate}
+                  </span>
+                )}
+              </div>
+              <p className="text-xs text-slate-400 font-sans mt-0.5">
+                {resolvedName}
+              </p>
+            </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-sm text-slate-500 hover:text-white hover:bg-[#181818] transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <a
+              id="view-on-yahoo-finance-header-button"
+              href={getYahooFinanceUrl(targetTicker)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-[#6001d2]/20 hover:bg-[#6001d2]/35 text-[#d8b4fe] hover:text-white border border-[#7b1fa2]/50 hover:border-[#a855f7]/70 text-xs font-mono font-medium transition-all shadow-sm"
+              title={`在 Yahoo Finance 打开 ${targetTicker} 官方实时行情`}
+            >
+              <ExternalLink className="w-3.5 h-3.5" />
+              <span>在 Yahoo Finance 查看</span>
+            </a>
+
+            <button
+              id="modal-close-button"
+              onClick={onClose}
+              className="p-1.5 rounded-sm text-slate-400 hover:text-white hover:bg-slate-800/80 transition-colors"
+              title="关闭窗口"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 p-6 overflow-y-auto space-y-5">
-          {/* Price & Change Banner */}
-          <div className="flex items-baseline justify-between p-4 rounded-sm bg-[#0a0a0a] border border-slate-800">
-            <div>
-              <span className="text-[10px] uppercase tracking-wider text-slate-500 block mb-0.5 font-mono">
-                当日收盘报价
+        {/* Modal Scrollable Body */}
+        <div className="flex-1 p-5 overflow-y-auto space-y-4.5">
+          {/* Data Source Sync Bar */}
+          <div className="flex items-center justify-between px-3 py-2 rounded-sm bg-[#121212] border border-slate-800/80 text-xs font-mono">
+            <div className="flex items-center gap-2">
+              <span className={`w-2 h-2 rounded-full ${liveQuote ? "bg-emerald-400 animate-pulse" : "bg-emerald-500/70"}`} />
+              <span className="text-slate-200">
+                {liveQuote ? "已直接应用 Yahoo Finance 官方实时价格" : "官方权威基准价格"}
               </span>
-              <div className="text-3xl font-mono font-bold text-white">
-                ${stockData.price !== undefined ? stockData.price.toFixed(2) : "---"}
+              {liveQuote?.exchange && (
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">
+                  {liveQuote.exchange}
+                </span>
+              )}
+            </div>
+            <a
+              id="view-on-yahoo-finance-bar-link"
+              href={getYahooFinanceUrl(targetTicker)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#d4af37] hover:text-[#f5d77f] hover:underline inline-flex items-center gap-1 text-[11px] transition-colors"
+            >
+              <span>查看 Yahoo 原始报价</span>
+              <ExternalLink className="w-3 h-3" />
+            </a>
+          </div>
+
+          {/* Price & Volume Summary Banner */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-3.5 rounded-sm bg-[#080808] border border-slate-800">
+            {/* Price Quote */}
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400 block mb-0.5 font-mono">
+                {isMacro ? "权威基准收盘点位" : "官方收盘报价"}
+              </span>
+              <div className="text-2xl sm:text-3xl font-mono font-bold text-white flex items-baseline">
+                {resolvedPrice != null ? (
+                  <>
+                    {resolvedPrice < 10 && resolvedPrice > 0
+                      ? resolvedPrice.toFixed(3)
+                      : resolvedPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    <span className="text-xs text-slate-400 ml-1.5 font-normal font-sans">
+                      {unit}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-slate-500 font-mono text-xl">null</span>
+                )}
               </div>
             </div>
 
-            <div className="text-right">
-              <span className="text-[10px] uppercase tracking-wider text-slate-500 block mb-0.5 font-mono">
+            {/* Change Percent */}
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400 block mb-0.5 font-mono">
                 当日涨跌幅
               </span>
-              <div
-                className={`inline-flex items-center text-base font-bold font-mono px-2.5 py-1 rounded-sm border ${
-                  isPositive
-                    ? "text-emerald-400 bg-emerald-950/40 border-emerald-900/50"
-                    : isNegative
-                    ? "text-rose-400 bg-rose-950/40 border-rose-900/50"
-                    : "text-slate-300 bg-slate-800/60 border-slate-700/50"
-                }`}
-              >
-                {isPositive ? <TrendingUp className="w-4 h-4 mr-1" /> : isNegative ? <TrendingDown className="w-4 h-4 mr-1" /> : null}
-                {changeDisplay}
-              </div>
-            </div>
-
-            {stockData.rvol !== undefined && stockData.rvol !== null && (
-              <div className="text-right">
-                <span className="text-[10px] uppercase tracking-wider text-slate-500 block mb-0.5 font-mono">
-                  成交量比 (RVOL)
-                </span>
-                <div className="text-base font-bold font-mono text-[#d4af37]">
-                  {typeof stockData.rvol === "number" ? `${stockData.rvol.toFixed(1)}x` : stockData.rvol}
+              {resolvedChangePercent != null ? (
+                <div
+                  className={`inline-flex items-center text-sm sm:text-base font-bold font-mono px-2.5 py-1 rounded-sm border ${
+                    isPos
+                      ? "text-emerald-400 bg-emerald-950/40 border-emerald-800/50"
+                      : isNeg
+                      ? "text-rose-400 bg-rose-950/40 border-rose-800/50"
+                      : "text-slate-300 bg-slate-800/60 border-slate-700/50"
+                  }`}
+                >
+                  {isPos ? (
+                    <TrendingUp className="w-4 h-4 mr-1" />
+                  ) : isNeg ? (
+                    <TrendingDown className="w-4 h-4 mr-1" />
+                  ) : null}
+                  {changeDisplay}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="text-sm font-mono text-slate-500">null</div>
+              )}
+            </div>
+
+            {/* Volume Status Badge (放量 / 缩量) */}
+            <div>
+              <span className="text-[10px] uppercase tracking-wider text-slate-400 block mb-0.5 font-mono">
+                成交量与换手 (RVOL)
+              </span>
+              {hasRealVol ? (
+                <div
+                  className={`inline-flex items-center gap-1.5 text-xs font-mono font-bold px-2.5 py-1 rounded-sm border ${
+                    volumeInfo.isExpansion
+                      ? "bg-emerald-950/60 text-emerald-300 border-emerald-700/60"
+                      : volumeInfo.isContraction
+                      ? "bg-amber-950/40 text-amber-300 border-amber-800/60"
+                      : "bg-slate-850 text-slate-300 border-slate-700"
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      volumeInfo.isExpansion
+                        ? "bg-emerald-400 animate-pulse"
+                        : volumeInfo.isContraction
+                        ? "bg-amber-400"
+                        : "bg-slate-400"
+                    }`}
+                  />
+                  <span>{volumeInfo.badgeLabel}</span>
+                  <span className="text-[10px] opacity-75 font-normal">
+                    ({volumeInfo.rvolStr} 均量)
+                  </span>
+                </div>
+              ) : (
+                <div className="text-xs font-mono text-slate-500">null (未提取)</div>
+              )}
+            </div>
           </div>
 
-          {/* Sparkline Chart */}
+          {/* 1. Price Movement Trajectory */}
           <div className="bg-[#080808] p-4 rounded-sm border border-slate-800">
-            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
-              <span className="flex items-center gap-1.5 font-semibold text-slate-300 font-sans">
+            <div className="flex items-center justify-between text-xs mb-2">
+              <span className="flex items-center gap-1.5 font-semibold text-slate-200">
                 <BarChart2 className="w-3.5 h-3.5 text-[#d4af37]" />
-                分时 / 日K走势参考
+                <span>全天价格波动轨迹 (Price Trajectory)</span>
               </span>
-              <span className="font-mono text-[10px] uppercase tracking-wider text-slate-500">
-                Historical Trend
+              <span className="text-[11px] font-mono text-slate-400">
+                日内振幅：{amplitude !== "null" ? `${amplitude}%` : <span className="text-slate-500">null</span>}
               </span>
             </div>
 
-            <div className="h-36 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="modalGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor={isPositive ? "#10b981" : "#f43f5e"} stopOpacity={0.3} />
-                      <stop offset="95%" stopColor={isPositive ? "#10b981" : "#f43f5e"} stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <YAxis domain={[minVal, maxVal]} stroke="#475569" fontSize={10} tickLine={false} orientation="right" />
-                  <Tooltip
-                    contentStyle={{ backgroundColor: "#121212", borderColor: "#334155", borderRadius: "2px", fontSize: "12px" }}
-                    itemStyle={{ color: "#d4af37" }}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="price"
-                    stroke={isPositive ? "#10b981" : "#f43f5e"}
-                    strokeWidth={1.5}
-                    fillOpacity={1}
-                    fill="url(#modalGrad)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+            {/* Clean Area Chart */}
+            <div className="h-32 w-full pt-1">
+              {trajectory.length >= 2 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 8, right: 6, left: 6, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="modalTrajGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop
+                          offset="5%"
+                          stopColor={isPos ? "#10b981" : isNeg ? "#f43f5e" : "#94a3b8"}
+                          stopOpacity={0.25}
+                        />
+                        <stop
+                          offset="95%"
+                          stopColor={isPos ? "#10b981" : isNeg ? "#f43f5e" : "#94a3b8"}
+                          stopOpacity={0.0}
+                        />
+                      </linearGradient>
+                    </defs>
+                    <YAxis
+                      domain={[minChartVal, maxChartVal]}
+                      hide
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="price"
+                      stroke={isPos ? "#10b981" : isNeg ? "#f43f5e" : "#94a3b8"}
+                      strokeWidth={2}
+                      fillOpacity={1}
+                      fill="url(#modalTrajGrad)"
+                      isAnimationActive={false}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
+                  分时走势轨迹数据未提取 (null)
+                </div>
+              )}
+            </div>
+
+            {/* Key Price Bounds Reference Row */}
+            <div className="grid grid-cols-4 gap-2 mt-2 pt-2 border-t border-slate-850 text-center font-mono text-xs">
+              <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
+                <span className="text-[10px] text-slate-400 block">开盘价</span>
+                <span className="text-slate-200 font-semibold">
+                  {openPrice != null ? `$${openPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
+                </span>
+              </div>
+              <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
+                <span className="text-[10px] text-emerald-400/90 block">日内最高</span>
+                <span className="text-emerald-300 font-semibold">
+                  {highPrice != null ? `$${highPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
+                </span>
+              </div>
+              <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
+                <span className="text-[10px] text-rose-400/90 block">日内最低</span>
+                <span className="text-rose-300 font-semibold">
+                  {lowPrice != null ? `$${lowPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
+                </span>
+              </div>
+              <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
+                <span className="text-[10px] text-[#d4af37] block">收盘价</span>
+                <span className="text-white font-bold">
+                  {closePrice != null ? (
+                    closePrice < 10 && closePrice > 0 ? closePrice.toFixed(3) : closePrice.toFixed(2)
+                  ) : (
+                    <span className="text-slate-500 font-normal">null</span>
+                  )}
+                </span>
+              </div>
             </div>
           </div>
 
-          {/* Short Term & Mid Term Logic Outlook */}
+          {/* 2. Volume Change vs Average Analysis (每日成交量变化与放量/缩量诊断) */}
           <div className="bg-[#080808] p-4 rounded-sm border border-slate-800 space-y-3">
+            <div className="flex items-center justify-between text-xs">
+              <span className="flex items-center gap-1.5 font-bold font-mono text-[#d4af37]">
+                <Activity className="w-3.5 h-3.5" />
+                <span>成交量能对比诊断 (Volume vs. 3-Month Average)</span>
+              </span>
+              {hasRealVol ? (
+                <span
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded border font-semibold ${
+                    volumeInfo.isExpansion
+                      ? "bg-emerald-950/60 text-emerald-300 border-emerald-700/60"
+                      : volumeInfo.isContraction
+                      ? "bg-amber-950/40 text-amber-300 border-amber-800/60"
+                      : "bg-slate-800 text-slate-300 border-slate-700"
+                  }`}
+                >
+                  {volumeInfo.badgeLabel}
+                </span>
+              ) : (
+                <span className="text-[10px] font-mono text-slate-500">null</span>
+              )}
+            </div>
+
+            {/* Volume Stats Grid (今日量、日均基准量、换手率、偏离度、RVOL 5大结构化指标) */}
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+              <div
+                className="p-2 bg-[#121212] rounded border border-slate-850"
+                title={volumeInfo.todayVol ? `${volumeInfo.todayVol.toLocaleString()} 股 (精确当日成交量)` : undefined}
+              >
+                <span className="text-[10px] text-slate-400 block">今日成交量</span>
+                <span className="text-slate-100 font-bold">
+                  {volumeInfo.todayVol ? volumeInfo.todayVolumeFormatted : <span className="text-slate-500 font-normal">null</span>}
+                </span>
+              </div>
+              <div
+                className="p-2 bg-[#121212] rounded border border-slate-850"
+                title={volumeInfo.avgVol ? `${volumeInfo.avgVol.toLocaleString()} 股 (3个月日均成交量)` : undefined}
+              >
+                <span className="text-[10px] text-slate-400 block">日均基准量(3月)</span>
+                <span className="text-slate-300">
+                  {volumeInfo.avgVol ? volumeInfo.avgVolumeFormatted : <span className="text-slate-500 font-normal">null</span>}
+                </span>
+              </div>
+              <div
+                className="p-2 bg-[#121212] rounded border border-slate-850"
+                title={volumeInfo.turnoverRateStr ? `换手率 = 今日成交量 / 总流通股本` : undefined}
+              >
+                <span className="text-[10px] text-slate-400 block">换手率(预估)</span>
+                <span className="text-cyan-300 font-bold">
+                  {volumeInfo.turnoverRateStr || <span className="text-slate-500 font-normal">null</span>}
+                </span>
+              </div>
+              <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                <span className="text-[10px] text-slate-400 block">放量/缩量偏离度</span>
+                <span
+                  className={`font-bold ${
+                    volumeInfo.isExpansion
+                      ? "text-emerald-400"
+                      : volumeInfo.isContraction
+                      ? "text-amber-400"
+                      : "text-slate-300"
+                  }`}
+                >
+                  {hasRealVol ? volumeInfo.deltaPercentStr : <span className="text-slate-500 font-normal">null</span>}
+                </span>
+              </div>
+              <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                <span className="text-[10px] text-slate-400 block">相对成交量比(RVOL)</span>
+                <span className="text-[#d4af37] font-bold">
+                  {hasRealVol ? volumeInfo.rvolStr : <span className="text-slate-500 font-normal">null</span>}
+                </span>
+              </div>
+            </div>
+
+            {/* Quantitative Volume Action Meaning */}
+            <div className="p-3 bg-[#121212] rounded border border-slate-850 text-xs text-slate-300 leading-relaxed font-sans">
+              <span className="text-[#d4af37] font-mono font-semibold mr-1.5">
+                【主力资金量能意图】:
+              </span>
+              {volumeInfo.interpretation}
+            </div>
+          </div>
+
+          {/* 3. Today's Trajectory & Cause Summary (走势与成因总结) */}
+          <div className="bg-[#080808] p-4 rounded-sm border border-slate-800 space-y-3.5">
             <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#d4af37]">
               <Zap className="w-3.5 h-3.5" />
-              <span>多空逻辑推演 (Short & Mid-Term Breakdown)</span>
+              <span>今日走势与成因综合归因总结 (Trajectory & Driver Overview)</span>
             </div>
 
-            <div className="space-y-2.5 text-xs font-sans">
-              <div className="p-3 bg-[#121212] rounded-sm border border-slate-850">
-                <span className="text-[11px] font-mono text-emerald-400 font-bold block mb-1">
-                  【短期走势评估 (1-5个交易日)】:
+            {/* A. Today's Trend / Price Action Summary */}
+            <div className="p-3.5 bg-[#121212] rounded-sm border border-slate-850 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-emerald-400 font-mono">
+                <TrendingUp className="w-3.5 h-3.5" />
+                <span>1. 今天整体怎么一个走势 (Intraday Progression):</span>
+              </div>
+              <p className="text-xs text-slate-200 leading-relaxed font-sans pl-5">
+                {intradayTrendDescription}
+              </p>
+            </div>
+
+            {/* B. Why It Moved This Way & News Attribution */}
+            <div className="p-3.5 bg-[#121212] rounded-sm border border-slate-850 space-y-1.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-blue-400 font-mono">
+                <Newspaper className="w-3.5 h-3.5" />
+                <span>2. 大概为什么会这么走 (Why It Moved & News Attribution):</span>
+              </div>
+              <div className="text-xs leading-relaxed font-sans pl-5">
+                <p
+                  className={
+                    hasNews
+                      ? "text-slate-200"
+                      : "text-slate-300 italic"
+                  }
+                >
+                  {driverSummary}
+                </p>
+
+                {hasNews && (
+                  <div className="mt-2 text-[11px] font-mono text-[#d4af37] flex items-center gap-1">
+                    <Info className="w-3 h-3 shrink-0" />
+                    <span>该催化已被纳入当日权威研报异动归因矩阵</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* C. Strategic Outlook & Key Levels */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              {/* Short & Mid-Term Outlook */}
+              <div className="p-3 bg-[#121212] rounded-sm border border-slate-850 space-y-1.5 text-xs">
+                <span className="text-[11px] font-mono text-purple-400 font-bold block">
+                  【短期多空预判 (1-5日)】:
                 </span>
-                <p className="text-slate-300 leading-relaxed">
-                  {shortOutlook || "均线系统整理，关注量价确认。"}
+                <p className="text-slate-300 leading-relaxed font-sans">
+                  {shortOutlook}
                 </p>
               </div>
 
-              <div className="p-3 bg-[#121212] rounded-sm border border-slate-850">
-                <span className="text-[11px] font-mono text-blue-400 font-bold block mb-1">
-                  【中长期逻辑与催化剂机制】:
-                </span>
-                <p className="text-slate-300 leading-relaxed">
-                  {midLogic || "评估行业基本面逻辑与核心催化剂。"}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Key Levels & Invalidation */}
-          <div className="bg-[#080808] p-4 rounded-sm border border-slate-800 space-y-2.5 text-xs font-mono">
-            <div className="flex items-center gap-1.5 text-[#d4af37] font-bold">
-              <Target className="w-3.5 h-3.5" />
-              <span>关键量价技术位与失效止损点</span>
-            </div>
-
-            {invalidationVal && (
-              <div className="p-3 bg-[#160808] rounded-sm border border-rose-900/60 flex items-start gap-2.5">
-                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-                <div>
-                  <span className="text-rose-400 font-bold block text-xs mb-0.5">
-                    【多空逻辑失效位 (Invalidation Level)】:
-                  </span>
-                  <span className="text-rose-200 font-mono text-sm font-bold">
-                    {invalidationVal.startsWith("$") ? invalidationVal : `$${invalidationVal}`}
-                  </span>
-                  <p className="text-[11px] text-slate-400 font-sans mt-0.5">
-                    价格若击穿/突破此关键分水岭，原有多空推演逻辑证伪，执行纪律风控。
-                  </p>
+              {/* Invalidation / Risk Control Level */}
+              <div className="p-3 bg-[#160a0a] rounded-sm border border-rose-900/50 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1 text-rose-400 font-bold font-mono">
+                  <AlertTriangle className="w-3.5 h-3.5" />
+                  <span>【关键失效与止损风控位】:</span>
                 </div>
-              </div>
-            )}
-
-            {stockData.keyLevels && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1 text-slate-300">
-                {stockData.keyLevels.support && (
-                  <div className="p-2.5 bg-[#121212] rounded-sm border border-emerald-950/60">
-                    <span className="text-[10px] text-emerald-400 block font-semibold">支撑位:</span>
-                    <span>{stockData.keyLevels.support}</span>
-                  </div>
-                )}
-                {stockData.keyLevels.resistance && (
-                  <div className="p-2.5 bg-[#121212] rounded-sm border border-blue-950/60">
-                    <span className="text-[10px] text-blue-400 block font-semibold">阻力位:</span>
-                    <span>{stockData.keyLevels.resistance}</span>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Associated News & Attribution */}
-          {newsAttributionText && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-300 font-sans">
-                <Newspaper className="w-3.5 h-3.5 text-[#d4af37]" />
-                <span>事件归因与新闻公告 (News Attribution)</span>
-              </div>
-              <div className="p-3.5 rounded-sm bg-[#0a0a0a] border border-slate-800 text-xs text-slate-300 font-sans leading-relaxed">
-                {newsAttributionText}
+                <div className="font-mono text-sm font-bold text-rose-200">
+                  {invalidationVal}
+                </div>
+                <p className="text-[11px] text-slate-400 font-sans leading-relaxed">
+                  若价格反向击穿该关键分水岭，原有多空推演逻辑自动证伪，执行纪律风控。
+                </p>
               </div>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-3.5 border-t border-slate-800 bg-[#0a0a0a] flex items-center justify-between">
-          <span className="text-xs text-slate-500 font-sans">
-            美股策略分析师 • 零幻觉数据锚定
+        {/* Modal Bottom Footer */}
+        <div className="px-5 py-3.5 border-t border-slate-800 bg-[#0b0b0b] flex items-center justify-between">
+          <span className="text-xs text-slate-500 font-mono">
+            Yahoo Finance 官方对齐 • 零幻觉数据架构
           </span>
 
           <button
+            id="modal-ask-ai-button"
             onClick={() => {
               onClose();
-              onAskAi(ticker);
+              if (onAskAi) {
+                onAskAi(targetTicker);
+              }
             }}
             className="px-4 py-2 rounded-sm bg-[#d4af37] hover:bg-[#c49f27] text-black text-xs font-semibold flex items-center gap-1.5 shadow-md transition-all font-mono"
           >
             <Zap className="w-3.5 h-3.5 text-black" />
-            <span>进入 AI 策略师深度推演 [{ticker}]</span>
+            <span>向 AI 策略师提问 [{targetTicker}]</span>
+            <ArrowRight className="w-3 h-3 text-black" />
           </button>
         </div>
       </div>

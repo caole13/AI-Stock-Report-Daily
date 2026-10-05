@@ -336,6 +336,7 @@ ${(report?.riskWarnings || ["留意原油二次上冲通胀反弹风险", "关�
           className="flex items-center gap-2"
         >
           <input
+            id="analyst-chat-input"
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}

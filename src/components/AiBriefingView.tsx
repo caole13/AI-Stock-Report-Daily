@@ -17,20 +17,26 @@ import {
   Zap,
   CheckCircle2,
 } from "lucide-react";
-import { DailyAiReport } from "../types";
+import { DailyAiReport, HistoricalDailyData } from "../types";
+import { MacroRadarCalendar } from "./MacroRadarCalendar";
+import { generateMasterMarkdownReport } from "../utils/markdownExporter";
 
 interface AiBriefingViewProps {
-  report: DailyAiReport;
-  selectedDate: string;
-  onAskAi: (question: string) => void;
+  data?: HistoricalDailyData | any;
+  report?: DailyAiReport;
+  selectedDate?: string;
+  onAskAi?: (question: string) => void;
+  onSelectStock?: (ticker: string) => void;
+  onSwitchTab?: (tab: any) => void;
 }
 
-export const AiBriefingView: React.FC<AiBriefingViewProps> = ({
-  report,
-  selectedDate,
-  onAskAi,
-}) => {
-  const [isExpanded, setIsExpanded] = useState(false);
+export const AiBriefingView: React.FC<AiBriefingViewProps> = (props) => {
+  const data = props.data;
+  const report: DailyAiReport = props.report || data?.aiReport || data;
+  const selectedDate = props.selectedDate || data?.date || "";
+  const { onSelectStock, onSwitchTab } = props;
+
+  const [isExpanded, setIsExpanded] = useState(true);
   const [copied, setCopied] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -39,7 +45,30 @@ export const AiBriefingView: React.FC<AiBriefingViewProps> = ({
   const executiveText = report.executiveSnapshot || report.executiveSummary || "";
 
   const handleCopyReport = () => {
-    let markdown = `# 【MarketPulse AI 每日策略研报 - ${selectedDate}】
+    let markdown = "";
+    if (data && data.macro) {
+      markdown = generateMasterMarkdownReport(data, selectedDate);
+    } else {
+      markdown = `# 【MarketPulse AI 每日策略研报 - ${selectedDate}】
+**市场情绪**: ${report.marketSentiment || "Neutral"} (情绪评分: ${report.sentimentScore || 50}/100)
+**生成时间**: ${report.generatedAt || selectedDate}
+
+## 一、核心速览 (Executive Snapshot)
+${executiveText}
+`;
+    }
+
+    navigator.clipboard.writeText(markdown);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2500);
+  };
+
+  const handleExportMarkdown = () => {
+    let markdown = "";
+    if (data && data.macro) {
+      markdown = generateMasterMarkdownReport(data, selectedDate);
+    } else {
+      markdown = `# 【MarketPulse AI 每日策略研报 - ${selectedDate}】
 **市场情绪**: ${report.marketSentiment || "Neutral"} (情绪评分: ${report.sentimentScore || 50}/100)
 **生成时间**: ${report.generatedAt || selectedDate}
 
@@ -48,69 +77,20 @@ ${executiveText}
 
 `;
 
-    if (report.heavyweightInsights && report.heavyweightInsights.length > 0) {
-      markdown += `## 二、重磅解读 (Heavyweight Insights)\n`;
-      report.heavyweightInsights.forEach((item) => {
-        markdown += `### ${item.title}\n${item.impact}\n\n`;
-      });
-    } else if (report.heavyDeepDive) {
-      markdown += `## 二、重磅解读: ${report.heavyDeepDive.title}\n${report.heavyDeepDive.content}\n\n`;
-    }
+      if (report.heavyweightInsights && report.heavyweightInsights.length > 0) {
+        markdown += `## 二、重磅解读\n`;
+        report.heavyweightInsights.forEach((item) => {
+          markdown += `### ${item.title}\n${item.impact}\n\n`;
+        });
+      }
 
-    if (report.sectorRotations) {
-      markdown += `## 三、行业分类与轮动路径 (Sector Rotations)\n`;
-      markdown += `- **成长科技**: ${report.sectorRotations.growth}\n`;
-      markdown += `- **防御价值**: ${report.sectorRotations.defensive}\n`;
-      markdown += `- **主力资金流向**: ${report.sectorRotations.capitalFlow}\n\n`;
-    } else if (report.sectorClassification) {
-      markdown += `## 三、行业分类提炼与轮动 (Sector Classification)\n`;
-      markdown += `- **领涨主线**: ${report.sectorClassification.leadingAnalysis}\n`;
-      markdown += `- **滞涨板块**: ${report.sectorClassification.laggingAnalysis}\n`;
-      markdown += `- **资金轮动**: ${report.sectorClassification.rotationInsight}\n\n`;
-    }
+      if (report.sectorRotations) {
+        markdown += `## 三、行业轮动\n- 成长科技: ${report.sectorRotations.growth}\n- 防御消费: ${report.sectorRotations.defensive}\n- 资金流向: ${report.sectorRotations.capitalFlow}\n\n`;
+      }
 
-    if (report.tacticalOutlook) {
-      markdown += `## 四、战术多空展望 (Tactical Outlook)\n`;
-      markdown += `- **做多方向 (Bull Ideas)**: ${report.tacticalOutlook.bullIdeas}\n`;
-      markdown += `- **做空/防御 (Bear Ideas)**: ${report.tacticalOutlook.bearIdeas}\n\n`;
-    } else if (report.bullBearTactics) {
-      markdown += `## 四、战术多空建议 (Tactical Ideas)\n`;
-      markdown += `### 做多方向:\n${(report.bullBearTactics.longIdeas || []).map((i) => `- ${i}`).join("\n")}\n\n`;
-      markdown += `### 防御/减仓:\n${(report.bullBearTactics.shortOrDefensiveIdeas || []).map((i) => `- ${i}`).join("\n")}\n\n`;
-    }
-
-    if (report.riskWarnings && report.riskWarnings.length > 0) {
-      markdown += `## 五、风险警报 (Risk Warnings)\n${report.riskWarnings.map((w) => `- ⚠️ ${w}`).join("\n")}\n`;
-    }
-
-    navigator.clipboard.writeText(markdown);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const handleExportMarkdown = () => {
-    let markdown = `# 【MarketPulse AI 每日策略研报 - ${selectedDate}】
-**市场情绪**: ${report.marketSentiment || "Neutral"} (情绪评分: ${report.sentimentScore || 50}/100)
-**生成时间**: ${report.generatedAt || selectedDate}
-
-## 一、核心速览
-${executiveText}
-
-`;
-
-    if (report.heavyweightInsights && report.heavyweightInsights.length > 0) {
-      markdown += `## 二、重磅解读\n`;
-      report.heavyweightInsights.forEach((item) => {
-        markdown += `### ${item.title}\n${item.impact}\n\n`;
-      });
-    }
-
-    if (report.sectorRotations) {
-      markdown += `## 三、行业轮动\n- 成长科技: ${report.sectorRotations.growth}\n- 防御消费: ${report.sectorRotations.defensive}\n- 资金流向: ${report.sectorRotations.capitalFlow}\n\n`;
-    }
-
-    if (report.tacticalOutlook) {
-      markdown += `## 四、战术多空\n- 做多方向: ${report.tacticalOutlook.bullIdeas}\n- 做空/防御: ${report.tacticalOutlook.bearIdeas}\n\n`;
+      if (report.tacticalOutlook) {
+        markdown += `## 四、战术多空\n- 做多方向: ${report.tacticalOutlook.bullIdeas}\n- 做空/防御: ${report.tacticalOutlook.bearIdeas}\n\n`;
+      }
     }
 
     const blob = new Blob([markdown], { type: "text/markdown;charset=utf-8" });
@@ -235,9 +215,13 @@ ${executiveText}
       {/* 2. Collapsible Full Structured Report Content */}
       {isExpanded && (
         <div className="p-6 space-y-6 animate-in fade-in duration-200 divide-y divide-slate-800/80">
-          
+          {/* Feature: Macro & Earnings Radar Calendar */}
+          <div className="pt-1">
+            <MacroRadarCalendar onSelectStock={onSelectStock} selectedDate={selectedDate || data?.date} />
+          </div>
+
           {/* Module 1: Macro Liquidity & Transmission */}
-          <div className="pt-2">
+          <div className="pt-6">
             <div className="flex items-center gap-2 mb-3">
               <Compass className="w-4 h-4 text-[#d4af37]" />
               <h3 className="text-sm font-serif font-bold text-white uppercase tracking-wide">
@@ -310,61 +294,65 @@ ${executiveText}
               </div>
 
               {/* Earnings Cards Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
-                {report.earningsStatisticsAndImpact.earningsSummary.map((item, idx) => (
-                  <div key={idx} className="bg-[#0a0a0a] p-3.5 rounded-sm border border-slate-850 space-y-2">
-                    <div className="flex items-center justify-between border-b border-slate-850 pb-2">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-mono font-bold text-white">{item.ticker}</span>
-                        <span className="text-xs text-slate-400 font-sans">{item.name}</span>
-                      </div>
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-[#161616] text-[#d4af37] border border-slate-800">
-                        {item.role}
-                      </span>
-                    </div>
-
-                    <div className="space-y-1 text-xs font-mono">
-                      {Object.entries(item.keyMetrics).map(([k, v]) => (
-                        <div key={k} className="flex items-center justify-between text-slate-300">
-                          <span className="text-[10px] text-slate-500 uppercase">{k}:</span>
-                          <span className="text-emerald-400 font-bold text-right ml-2 truncate">{v}</span>
+              {Array.isArray(report.earningsStatisticsAndImpact?.earningsSummary) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                  {report.earningsStatisticsAndImpact.earningsSummary.map((item, idx) => (
+                    <div key={idx} className="bg-[#0a0a0a] p-3.5 rounded-sm border border-slate-850 space-y-2">
+                      <div className="flex items-center justify-between border-b border-slate-850 pb-2">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-sm font-mono font-bold text-white">{item.ticker}</span>
+                          <span className="text-xs text-slate-400 font-sans">{item.name}</span>
                         </div>
-                      ))}
-                    </div>
+                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-[#161616] text-[#d4af37] border border-slate-800">
+                          {item.role}
+                        </span>
+                      </div>
 
-                    <p className="text-[11px] text-slate-400 font-sans border-t border-slate-850 pt-2 leading-relaxed">
-                      {item.industryProgress}
-                    </p>
-                  </div>
-                ))}
-              </div>
+                      <div className="space-y-1 text-xs font-mono">
+                        {item.keyMetrics && Object.entries(item.keyMetrics).map(([k, v]) => (
+                          <div key={k} className="flex items-center justify-between text-slate-300">
+                            <span className="text-[10px] text-slate-500 uppercase">{k}:</span>
+                            <span className="text-emerald-400 font-bold text-right ml-2 truncate">{v}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      <p className="text-[11px] text-slate-400 font-sans border-t border-slate-850 pt-2 leading-relaxed">
+                        {item.industryProgress}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Macro Market Impact Breakdown */}
-              <div className="bg-[#0a0a0a] p-4 rounded-sm border border-slate-850 space-y-2.5">
-                <span className="text-xs font-mono font-bold text-[#d4af37] block">
-                  [宏观与行业多维传导总结 (Macro Market Transmission)]:
-                </span>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-sans">
-                  <div className="p-2.5 rounded-sm bg-[#121212] border border-slate-850 space-y-1">
-                    <span className="text-[10px] font-mono text-emerald-400 block font-bold">1. 资本开支验证 (Capex Validation)</span>
-                    <p className="text-slate-300 leading-relaxed text-[11px]">
-                      {report.earningsStatisticsAndImpact.macroMarketImpact.capexValidation}
-                    </p>
-                  </div>
-                  <div className="p-2.5 rounded-sm bg-[#121212] border border-slate-850 space-y-1">
-                    <span className="text-[10px] font-mono text-blue-400 block font-bold">2. 折现率对冲 (Discount Rate Offset)</span>
-                    <p className="text-slate-300 leading-relaxed text-[11px]">
-                      {report.earningsStatisticsAndImpact.macroMarketImpact.discountRateOffset}
-                    </p>
-                  </div>
-                  <div className="p-2.5 rounded-sm bg-[#121212] border border-slate-850 space-y-1">
-                    <span className="text-[10px] font-mono text-amber-400 block font-bold">3. 资金轮动机制 (Sector Rotation)</span>
-                    <p className="text-slate-300 leading-relaxed text-[11px]">
-                      {report.earningsStatisticsAndImpact.macroMarketImpact.sectorRotation}
-                    </p>
+              {report.earningsStatisticsAndImpact?.macroMarketImpact && (
+                <div className="bg-[#0a0a0a] p-4 rounded-sm border border-slate-850 space-y-2.5">
+                  <span className="text-xs font-mono font-bold text-[#d4af37] block">
+                    [宏观与行业多维传导总结 (Macro Market Transmission)]:
+                  </span>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-sans">
+                    <div className="p-2.5 rounded-sm bg-[#121212] border border-slate-850 space-y-1">
+                      <span className="text-[10px] font-mono text-emerald-400 block font-bold">1. 资本开支验证 (Capex Validation)</span>
+                      <p className="text-slate-300 leading-relaxed text-[11px]">
+                        {report.earningsStatisticsAndImpact.macroMarketImpact.capexValidation}
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-sm bg-[#121212] border border-slate-850 space-y-1">
+                      <span className="text-[10px] font-mono text-blue-400 block font-bold">2. 折现率对冲 (Discount Rate Offset)</span>
+                      <p className="text-slate-300 leading-relaxed text-[11px]">
+                        {report.earningsStatisticsAndImpact.macroMarketImpact.discountRateOffset}
+                      </p>
+                    </div>
+                    <div className="p-2.5 rounded-sm bg-[#121212] border border-slate-850 space-y-1">
+                      <span className="text-[10px] font-mono text-amber-400 block font-bold">3. 资金轮动机制 (Sector Rotation)</span>
+                      <p className="text-slate-300 leading-relaxed text-[11px]">
+                        {report.earningsStatisticsAndImpact.macroMarketImpact.sectorRotation}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
 
@@ -532,16 +520,16 @@ ${executiveText}
             </div>
           )}
 
-          {/* Bottom Action: Ask AI about this report */}
+          {/* Bottom Action: Jump to Price Action Scanner */}
           <div className="pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#0a0a0a] p-4 rounded-sm border border-slate-850">
             <span className="text-xs text-slate-400 font-sans">
-              想对此研报中的宏观因子或个股标的做进一步推演？
+              想进一步排查今日符合 1H EMA 多头排列与 15M Pin Bar 拒绝形态的个股？
             </span>
             <button
-              onClick={() => onAskAi(`请深度解读 ${selectedDate} 研报中关于 [${report.heavyweightInsights?.[0]?.title || "宏观震荡"}] 的实战操作细节与多空分界位`)}
+              onClick={() => onSwitchTab && onSwitchTab("price-action")}
               className="px-4 py-2 rounded-sm bg-[#d4af37] hover:bg-[#c49f27] text-black text-xs font-mono font-bold flex items-center gap-1.5 transition-colors shrink-0"
             >
-              <span>与 AI 策略师推演此研报</span>
+              <span>前往裸K形态雷达漏斗</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

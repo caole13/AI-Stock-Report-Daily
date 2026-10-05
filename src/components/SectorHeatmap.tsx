@@ -9,6 +9,12 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { SectorPerformance, SectorLeaderStock } from "../types";
+import {
+  analyzeVolume,
+  resolveStockVolumeData,
+  getStockBenchmark,
+  getYahooFinanceUrl,
+} from "../utils/volumeHelper";
 
 interface SectorHeatmapProps {
   sectors: SectorPerformance[];
@@ -179,6 +185,28 @@ export const SectorHeatmap: React.FC<SectorHeatmapProps> = ({
                       const isStockPos = (leader.changePercent !== undefined && leader.changePercent !== null && leader.changePercent > 0) || (leader.changePct && leader.changePct.startsWith("+"));
                       const isStockNeg = (leader.changePercent !== undefined && leader.changePercent !== null && leader.changePercent < 0) || (leader.changePct && leader.changePct.startsWith("-"));
 
+                      const benchmark = getStockBenchmark(leader.ticker);
+                      const displayPrice =
+                        leader.price && leader.price > 0
+                          ? leader.price
+                          : (benchmark.typicalPrice > 0 ? benchmark.typicalPrice : null);
+
+                      const volData = resolveStockVolumeData(
+                        leader.ticker,
+                        leader.rvol,
+                        leader.volume,
+                        leader.avgVolume,
+                        numChange
+                      );
+                      const volInfo = analyzeVolume(
+                        volData.rvol,
+                        numChange,
+                        volData.todayVol,
+                        volData.avgVol,
+                        volData.volumeUnit,
+                        leader.ticker
+                      );
+
                       const isNoNews =
                         !leader.catalyst ||
                         leader.catalyst.includes("【纯技术面/资金轮动，无突发公告】") ||
@@ -200,11 +228,43 @@ export const SectorHeatmap: React.FC<SectorHeatmapProps> = ({
                                   {leader.name}
                                 </span>
                               )}
-                              {leader.price && (
-                                <span className="text-xs font-mono text-slate-300">
-                                  ${leader.price.toFixed(2)}
+                              <span className="text-xs font-mono text-slate-300">
+                                {displayPrice != null ? `$${displayPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
+                              </span>
+
+                              {/* 换手率标签 */}
+                              {volInfo.turnoverRateStr && (
+                                <span
+                                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/40 text-cyan-300 border border-cyan-800/40"
+                                  title="当日预估全天换手率 (Turnover Rate)"
+                                >
+                                  换手 {volInfo.turnoverRateStr}
                                 </span>
                               )}
+
+                              {/* 今日成交量 */}
+                              {volInfo.todayVolumeFormatted && (
+                                <span
+                                  className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800"
+                                  title="今日成交量"
+                                >
+                                  量 {volInfo.todayVolumeFormatted}
+                                </span>
+                              )}
+
+                              {/* 量能状态徽章 (与内部弹窗100%同源同步) */}
+                              <span
+                                className={`text-[10px] font-mono px-1.5 py-0.5 rounded border ${
+                                  volInfo.isExpansion
+                                    ? "bg-emerald-950/60 text-emerald-300 border-emerald-800/40"
+                                    : volInfo.isContraction
+                                    ? "bg-amber-950/40 text-amber-300 border-amber-800/40"
+                                    : "bg-slate-900 text-slate-400 border-slate-800"
+                                }`}
+                                title={`相对3月均量(RVOL): ${volInfo.rvolStr}`}
+                              >
+                                {volInfo.badgeLabel}
+                              </span>
                             </div>
 
                             <p
@@ -216,7 +276,7 @@ export const SectorHeatmap: React.FC<SectorHeatmapProps> = ({
                             </p>
                           </div>
 
-                          <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 gap-1">
+                          <div className="flex sm:flex-col items-center sm:items-end justify-between shrink-0 gap-1.5">
                             <span
                               className={`text-xs font-mono font-bold px-2 py-0.5 rounded flex items-center gap-0.5 ${
                                 isStockPos
@@ -230,9 +290,23 @@ export const SectorHeatmap: React.FC<SectorHeatmapProps> = ({
                               {leader.changePct || (numChange ? `${numChange.toFixed(2)}%` : "--")}
                             </span>
 
-                            <div className="text-[10px] text-slate-400 group-hover:text-[#d4af37] flex items-center gap-0.5 transition-colors">
-                              <span>详情</span>
-                              <ExternalLink className="w-2.5 h-2.5" />
+                            <div className="flex items-center gap-1.5">
+                              <a
+                                href={getYahooFinanceUrl(leader.ticker)}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#6001d2]/20 hover:bg-[#6001d2]/35 text-[#d8b4fe] hover:text-white border border-[#7b1fa2]/40 flex items-center gap-1 transition-colors"
+                                title={`在 Yahoo Finance 打开 ${leader.ticker} 官方实时行情`}
+                              >
+                                <span>Yahoo</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+
+                              <div className="text-[10px] text-slate-400 group-hover:text-[#d4af37] flex items-center gap-0.5 transition-colors font-mono">
+                                <span>走势与归因</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </div>
                             </div>
                           </div>
                         </div>

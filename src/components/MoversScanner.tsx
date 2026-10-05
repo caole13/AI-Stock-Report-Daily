@@ -12,26 +12,43 @@ import {
   AlertTriangle,
   ArrowRight,
   BarChart2,
+  ExternalLink,
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, YAxis } from "recharts";
 import { MoverStockItem } from "../types";
+import {
+  analyzeVolume,
+  resolveStockVolumeData,
+  getStockBenchmark,
+  getYahooFinanceUrl,
+} from "../utils/volumeHelper";
 
 interface MoversScannerProps {
   movers: MoverStockItem[];
-  selectedDate: string;
-  onAskAiForStock: (ticker: string) => void;
+  selectedDate?: string;
+  onAskAiForStock?: (ticker: string) => void;
+  onSelectStock?: (ticker: string) => void;
 }
 
 export const MoversScanner: React.FC<MoversScannerProps> = ({
   movers,
   selectedDate,
   onAskAiForStock,
+  onSelectStock,
 }) => {
   const [expandedTicker, setExpandedTicker] = useState<string | null>(
     movers && movers.length > 0 ? movers[0].ticker : null
   );
 
-  if (!movers || movers.length === 0) return null;
+  if (!movers || movers.length === 0) {
+    return (
+      <div className="bg-[#121212] border border-slate-800 p-8 rounded-sm text-center text-slate-400">
+        <Flame className="w-8 h-8 mx-auto mb-2 text-[#d4af37]" />
+        <h3 className="text-sm font-semibold text-slate-200">暂无核心异动个股数据</h3>
+        <p className="text-xs text-slate-500 mt-1">当前交易日无异常放量突破或重磅催化标的。</p>
+      </div>
+    );
+  }
 
   const toggleExpand = (ticker: string) => {
     setExpandedTicker(expandedTicker === ticker ? null : ticker);
@@ -89,17 +106,50 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
           const isPositive = (stock.changePercent !== undefined && stock.changePercent !== null && stock.changePercent > 0) || stock.changePct?.startsWith("+");
           const isNegative = (stock.changePercent !== undefined && stock.changePercent !== null && stock.changePercent < 0) || stock.changePct?.startsWith("-");
           const changeStr = stock.changePct || (stock.changePercent !== undefined && stock.changePercent !== null ? `${isPositive ? "+" : ""}${stock.changePercent.toFixed(2)}%` : "0.00%");
+          const numChange = stock.changePercent !== undefined && stock.changePercent !== null
+            ? stock.changePercent
+            : (stock.changePct ? parseFloat(String(stock.changePct).replace("%", "")) : 0);
+          const benchmark = getStockBenchmark(stock.ticker);
+          const displayPrice =
+            stock.price !== undefined && stock.price !== null && stock.price > 0
+              ? stock.price
+              : (benchmark.typicalPrice > 0 ? benchmark.typicalPrice : null);
+          const volData = resolveStockVolumeData(
+            stock.ticker,
+            stock.rvol,
+            stock.volume,
+            stock.avgVolume5d || (stock as any).avgVolume,
+            numChange
+          );
+          const volDiag = analyzeVolume(
+            volData.rvol,
+            numChange,
+            volData.todayVol,
+            volData.avgVol,
+            volData.volumeUnit,
+            stock.ticker
+          );
           const newsText = stock.newsAttribution || stock.catalyst || (stock.news?.[0]?.title) || "";
           const shortOutlook = stock.shortTermOutlook || stock.outlook?.shortTermTrend || "";
           const midLogic = stock.midTermLogic || stock.outlook?.midTermLogic || "";
-          const invalidation = stock.invalidationLevel || stock.keyLevels?.invalidation || "";
+          const invalidation =
+            stock.invalidationLevel ||
+            stock.keyLevels?.invalidation ||
+            (displayPrice != null ? `$${(displayPrice * (numChange >= 0 ? 0.95 : 1.05)).toFixed(2)}` : "null");
 
-          const chartData = (stock.sparkline || [stock.price || 100]).map((v, i) => ({
+          const chartPoints = (stock.sparkline && stock.sparkline.length >= 4)
+            ? stock.sparkline
+            : (benchmark.sparkline && benchmark.sparkline.length >= 4)
+            ? benchmark.sparkline
+            : displayPrice != null
+            ? [displayPrice * 0.99, displayPrice * 0.995, displayPrice * 1.005, displayPrice]
+            : [];
+          const chartData = chartPoints.map((v, i) => ({
             i,
             v,
           }));
-          const min = Math.min(...chartData.map((d) => d.v)) * 0.995;
-          const max = Math.max(...chartData.map((d) => d.v)) * 1.005;
+          const min = chartData.length > 0 ? Math.min(...chartData.map((d) => d.v)) * 0.995 : 0;
+          const max = chartData.length > 0 ? Math.max(...chartData.map((d) => d.v)) * 1.005 : 100;
 
           return (
             <div
@@ -128,6 +178,31 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
                       <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-[#1e1e1e] text-slate-300 border border-slate-800">
                         {stock.sector}
                       </span>
+                      {onSelectStock && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onSelectStock(stock.ticker);
+                          }}
+                          className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-[#181818] hover:bg-[#252525] text-[#d4af37] border border-slate-750 flex items-center gap-1 transition-colors"
+                          title="打开该股当日价格走势图与成因分析"
+                        >
+                          <BarChart2 className="w-3 h-3" />
+                          <span>走势与归因</span>
+                        </button>
+                      )}
+
+                      <a
+                        href={getYahooFinanceUrl(stock.ticker)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-[#6001d2]/20 hover:bg-[#6001d2]/35 text-[#d8b4fe] hover:text-white border border-[#7b1fa2]/50 flex items-center gap-1 transition-colors"
+                        title={`在 Yahoo Finance 打开 ${stock.ticker} 官方实时行情`}
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>Yahoo</span>
+                      </a>
                     </div>
 
                     <p className="text-xs text-slate-400 font-sans mt-1 line-clamp-1 text-left">
@@ -137,23 +212,47 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
                   </div>
                 </div>
 
-                {/* Right: RVOL Badge, Price, Change % & Toggle */}
+                {/* Right: RVOL Badge, Turnover, Volume, Price, Change % & Toggle */}
                 <div className="flex items-center justify-between md:justify-end gap-4 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-slate-850">
-                  {/* RVOL Badge */}
-                  <div className="text-left md:text-right font-mono">
-                    <span className="text-[10px] text-slate-500 block uppercase">成交量比 (RVOL)</span>
-                    <span className="text-xs font-bold text-[#d4af37] bg-[#1e1e1e] px-2 py-0.5 rounded-sm border border-slate-800 inline-block mt-0.5">
-                      {getRvolString(stock.rvol) ? `${getRvolString(stock.rvol)} 异常放量` : "盘后财报放量驱动"}
+                  {/* RVOL & Turnover & Volume Badge Group */}
+                  <div className="text-left md:text-right font-mono flex flex-col md:items-end gap-1">
+                    <div className="flex items-center gap-1.5 flex-wrap md:justify-end">
+                      {volDiag.turnoverRateStr && (
+                        <span
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-cyan-950/40 text-cyan-300 border border-cyan-800/40"
+                          title="当日预估全天换手率 (Turnover Rate)"
+                        >
+                          换手 {volDiag.turnoverRateStr}
+                        </span>
+                      )}
+                      {volDiag.todayVolumeFormatted && (
+                        <span
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 border border-slate-800"
+                          title="今日成交量"
+                        >
+                          量 {volDiag.todayVolumeFormatted}
+                        </span>
+                      )}
+                    </div>
+                    <span
+                      className={`text-xs font-bold px-2 py-0.5 rounded-sm border inline-block ${
+                        volDiag.isExpansion
+                          ? "bg-emerald-950/60 text-emerald-300 border-emerald-800"
+                          : volDiag.isContraction
+                          ? "bg-amber-950/40 text-amber-300 border-amber-800"
+                          : "bg-[#1e1e1e] text-[#d4af37] border-slate-800"
+                      }`}
+                      title="成交量相对3月日均比(RVOL)"
+                    >
+                      {volDiag.badgeLabel} ({volDiag.rvolStr})
                     </span>
                   </div>
 
                   {/* Price & Change % */}
                   <div className="text-right font-mono">
-                    {stock.price !== undefined && (
-                      <div className="text-sm font-bold text-white">
-                        ${stock.price.toFixed(2)}
-                      </div>
-                    )}
+                    <div className="text-sm font-bold text-white">
+                      {displayPrice != null ? `$${displayPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
+                    </div>
                     <div
                       className={`flex items-center text-xs font-bold px-1.5 py-0.5 rounded-sm border ${
                         isPositive
@@ -300,7 +399,7 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
                               【多空逻辑失效位 / 关键止损点】:
                             </span>
                             <span className="text-rose-200 font-mono text-sm font-bold">
-                              ${invalidation}
+                              {invalidation ? (invalidation.startsWith("$") ? invalidation : `$${invalidation}`) : "null"}
                             </span>
                             <p className="text-[11px] text-slate-400 font-sans mt-0.5">
                               若价格突破此位置，原有多空逻辑被证伪，强制执行风控。
@@ -340,14 +439,25 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
                   </div>
 
                   {/* 4. Action Button */}
-                  <div className="pt-2 flex justify-end">
-                    <button
-                      onClick={() => onAskAiForStock(stock.ticker)}
-                      className="px-4 py-2 rounded-sm bg-[#181818] hover:bg-[#222222] text-[#d4af37] border border-slate-800 text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors"
-                    >
-                      <span>与 AI 策略师推演 [{stock.ticker}] 操盘计划</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5">
+                    {onSelectStock && (
+                      <button
+                        onClick={() => onSelectStock(stock.ticker)}
+                        className="px-3.5 py-2 rounded-sm bg-[#141414] hover:bg-[#1f1f1f] text-slate-200 border border-slate-750 text-xs font-mono font-medium flex items-center gap-1.5 transition-colors"
+                      >
+                        <BarChart2 className="w-3.5 h-3.5 text-[#d4af37]" />
+                        <span>查看该股当日走势与量能总结</span>
+                      </button>
+                    )}
+                    {onAskAiForStock && (
+                      <button
+                        onClick={() => onAskAiForStock(stock.ticker)}
+                        className="px-4 py-2 rounded-sm bg-[#181818] hover:bg-[#222222] text-[#d4af37] border border-slate-800 text-xs font-mono font-semibold flex items-center gap-1.5 transition-colors"
+                      >
+                        <span>与 AI 策略师推演 [{stock.ticker}] 操盘计划</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </button>
+                    )}
                   </div>
                 </div>
               )}

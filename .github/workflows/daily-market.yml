@@ -2,8 +2,8 @@ name: Auto Daily Market Report Pipeline
 
 on:
   schedule:
-    # 周一至周五美东时间 17:08 自动触发 (夏令时 UTC 21:08，错开整点高峰以保证准时触发执行)
-    - cron: '8 21 * * 1-5'
+    # 周一至周五美东时间 17:18 自动触发 (夏令时 UTC 21:18，避开盘中与17:00官方结算延迟期，确保获取最终结算收盘价)
+    - cron: '18 21 * * 1-5'
   workflow_dispatch:
 
 jobs:

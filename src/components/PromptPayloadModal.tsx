@@ -20,24 +20,29 @@ export const PromptPayloadModal: React.FC<PromptPayloadModalProps> = ({
 
   // Generate python raw data string representation
   const macroItems = (currentDayData.macro?.items || [])
-    .map((m) => `- ${m.name} (${m.ticker}): 当前值 ${m.currentValue.toFixed(2)}${m.unit ? " " + m.unit : ""}, 涨跌幅: ${m.changePercent >= 0 ? "+" : ""}${m.changePercent.toFixed(2)}%`)
+    .map((m) => `- ${m.name || m.ticker} (${m.ticker}): 当前值 ${(m.currentValue ?? m.price ?? 0).toFixed(2)}${m.unit ? " " + m.unit : ""}, 涨跌幅: ${m.changePct || ((m.changePercent ?? 0) >= 0 ? "+" : "") + (m.changePercent ?? 0).toFixed(2) + "%"}`)
     .join("\n");
 
   const sectorItems = (currentDayData.sectors || [])
     .map((s) => {
       const leaders = (s.leaders || [])
-        .map((l) => `  * ${l.ticker} (${l.name}): 现价 $${l.price.toFixed(2)}, 涨跌幅: ${l.changePercent >= 0 ? "+" : ""}${l.changePercent.toFixed(2)}%, RVOL: ${l.rvol}x [${l.reason}]`)
+        .map((l: any) => `  * ${l.ticker} (${l.name || l.ticker}): 现价 $${(l.price ?? 0).toFixed(2)}, 涨跌幅: ${l.changePct || ((l.changePercent ?? 0) >= 0 ? "+" : "") + (l.changePercent ?? 0).toFixed(2) + "%"}, RVOL: ${l.rvol || "1.0"}x [${l.reason || l.catalyst || "板块领头羊"}]`)
         .join("\n");
-      return `【${s.sectorName}】 (均涨跌: ${s.avgChangePercent >= 0 ? "+" : ""}${s.avgChangePercent.toFixed(2)}%)\n${leaders}`;
+      return `【${s.name || s.sectorName || "行业板块"}】 (均涨跌: ${s.avgChangePercent !== undefined ? `${s.avgChangePercent >= 0 ? "+" : ""}${s.avgChangePercent}%` : "0.00%"})\n${leaders}`;
     })
     .join("\n\n");
 
   const moverItems = (currentDayData.movers || [])
-    .map((m) => `- ${m.ticker} (${m.name}): $${m.price.toFixed(2)} (${m.changePercent >= 0 ? "+" : ""}${m.changePercent.toFixed(2)}%), RVOL: ${m.rvol}x\n  异动催化: ${m.catalyst}\n  技术位: 支撑 ${m.keyLevels?.support || "N/A"} | 阻力 ${m.keyLevels?.resistance || "N/A"} | 失效 ${m.keyLevels?.invalidation || "N/A"}`)
+    .map((m) => `- ${m.ticker} (${m.name || m.ticker}): $${(m.price ?? 0).toFixed(2)} (${m.changePct || ((m.changePercent ?? 0) >= 0 ? "+" : "") + (m.changePercent ?? 0).toFixed(2) + "%"}), RVOL: ${m.rvol || "1.0"}x\n  异动催化: ${m.catalyst || m.newsAttribution || "放量突破"}\n  技术位: 支撑 ${m.keyLevels?.support || "N/A"} | 阻力 ${m.keyLevels?.resistance || "N/A"} | 失效 ${m.invalidationLevel || m.keyLevels?.invalidation || "N/A"}`)
     .join("\n");
 
-  const transmissionItems = (currentDayData.transmissions || [])
-    .map((t) => `【链条: ${t.title}】\n- 驱动事件: ${t.drivingEvent}\n- 机制: ${t.transmissionSteps.join(" -> ")}\n- 受益: ${(t.beneficiaries || []).map((b) => `${b.ticker}(+${b.changePercent}%)`).join(", ")}\n- 受损: ${(t.impactedAssets || []).map((i) => `${i.ticker}(${i.changePercent}%)`).join(", ")}`)
+  const transmissionItems = (currentDayData.transmissions || (currentDayData as any).causalChains || [])
+    .map((t: any) => {
+      const steps = t.transmissionSteps && Array.isArray(t.transmissionSteps) ? t.transmissionSteps.join(" -> ") : (t.mechanism || t.summary || "跨资产流动性定价传导");
+      const bList = (t.beneficiaries || []).map((b: any) => `${b.ticker}${b.changePercent !== undefined ? `(+${b.changePercent}%)` : ""}`).join(", ") || t.beneficiary || "无";
+      const vList = (t.impactedAssets || []).map((i: any) => `${i.ticker}${i.changePercent !== undefined ? `(${i.changePercent}%)` : ""}`).join(", ") || t.victim || "无";
+      return `【链条: ${t.title || t.driver || "因果传导"}】\n- 驱动事件: ${t.driver || t.drivingEvent || t.title}\n- 机制: ${steps}\n- 受益: ${bList}\n- 受损: ${vList}`;
+    })
     .join("\n\n");
 
   const formattedPromptPayload = `### 【市场原始数据汇总 - 日期: ${currentDayData.date}】
