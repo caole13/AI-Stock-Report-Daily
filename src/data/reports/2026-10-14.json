@@ -1,0 +1,212 @@
+{
+  "date": "2026-10-14",
+  "marketStatus": "风险资产回调，避险资金向医疗与传统能源防御性板块轮动",
+  "macroSummary": {
+    "coreThesis": "市场在通胀韧性与地缘冲突反复的背景下出现剧烈波动，科技权重遭遇估值修正压力，而能源与医疗作为避险锚点展现出极强的相对收益。",
+    "transmissionDetail": "10年期美债收益率小幅下行未能支撑纳斯达克，反而暗示市场对经济增长前景的担忧加剧。美元走弱的同时黄金维持升势，反映出资金在复杂的地缘环境下对防御资产的渴求，避险情绪主导了当前市场的资产定价逻辑。",
+    "assets": [
+      {
+        "name": "标普500",
+        "ticker": "SPX",
+        "price": 7718.94,
+        "changePct": "-1.11%",
+        "trend": "down"
+      },
+      {
+        "name": "纳斯达克",
+        "ticker": "IXIC",
+        "price": 26692.87,
+        "changePct": "-1.88%",
+        "trend": "down"
+      },
+      {
+        "name": "美国原油基金ETF",
+        "ticker": "USO",
+        "price": 153.56,
+        "changePct": "+0.31%",
+        "trend": "up"
+      },
+      {
+        "name": "COMEX黄金",
+        "ticker": "GC=F",
+        "price": 4129.1,
+        "changePct": "+0.52%",
+        "trend": "up"
+      },
+      {
+        "name": "10年期美债",
+        "ticker": "^TNX",
+        "price": 5.19,
+        "changePct": "-0.52%",
+        "trend": "down"
+      },
+      {
+        "name": "美元指数",
+        "ticker": "DXY",
+        "price": 102.23,
+        "changePct": "-0.32%",
+        "trend": "down"
+      }
+    ]
+  },
+  "aiReport": {
+    "dailyExecutiveSummary": "今日市场呈现典型的避险情绪主导风格，SPX与IXIC双双走弱，科技成长板块成为重灾区。宏观层面，尽管10年期美债收益率略有回落，但这并未转化为对成长股估值的提振，反而凸显了市场对盈利增速下滑的深度忧虑。原油价格保持坚挺，加之美元指数的持续回调，强化了黄金作为最终对冲工具的吸引力。行业轮动表现显著：资金大举撤出前期拥挤的AI与半导体标的，转向LLY与UNH为代表的医疗保健板块以及XOM等能源巨头寻求避险保护。目前的市场逻辑已从单纯的增长博弈转向防御性配置，投资者正通过压缩高Beta持仓以应对宏观经济的不确定性。未来关注焦点将集中在核心企业财报对未来资本开支指引的修正，以及地缘政治对能源供应链潜在的二次扰动风险。",
+    "executiveSnapshot": "市场避险情绪全面升级，科技板块领跌，医疗与能源板块形成防御性支撑。",
+    "heavyweightInsights": [
+      {
+        "title": "科技股估值重估",
+        "impact": "高位成长股在缺乏业绩催化剂的情况下遭遇资金获利回吐，估值体系承压。"
+      },
+      {
+        "title": "防御性板块崛起",
+        "impact": "医疗保健巨头LLY与UNH表现亮眼，成为当前动荡市场中稀缺的价值避风港。"
+      }
+    ],
+    "sectorRotations": {
+      "growth": "以NVDA、AMD为首的半导体与科技成长板块遭遇重挫，资金获利了结意愿强烈。",
+      "defensive": "医疗健康板块（LLY、UNH）与传统能源板块（XOM）展现出极强的相对抗跌能力与资金吸纳力。",
+      "capitalFlow": "资金流向从高估值成长股切换至具备确定性现金流与防御属性的成熟板块。"
+    },
+    "tacticalOutlook": {
+      "bullIdeas": "建议关注具备强大定价能力与强现金流的医疗龙头，以及受地缘影响的原油上游公司。",
+      "bearIdeas": "警惕前期涨幅过大、估值严重偏离基本面的半导体及云基础设施供应商的进一步回撤。"
+    }
+  },
+  "sectors": [
+    {
+      "name": "科技成长",
+      "etf": "XLK",
+      "leaders": [
+        {
+          "ticker": "NVDA",
+          "changePct": "-3.16%",
+          "catalyst": "行业整体估值修正，机构资金避险减仓。"
+        },
+        {
+          "ticker": "MSFT",
+          "changePct": "-1.80%",
+          "catalyst": "跟随大盘科技股下行，缺乏利好支撑。"
+        },
+        {
+          "ticker": "AAPL",
+          "changePct": "+0.50%",
+          "catalyst": "作为防御性科技品种受到部分机构资金的被动增配。"
+        }
+      ]
+    },
+    {
+      "name": "医疗健康",
+      "etf": "XLV",
+      "leaders": [
+        {
+          "ticker": "LLY",
+          "changePct": "+3.62%",
+          "catalyst": "市场对于减肥药板块长期增长确定性的重新定价。"
+        },
+        {
+          "ticker": "UNH",
+          "changePct": "+4.73%",
+          "catalyst": "防御性配置需求推动，稳健盈利能力受到资金青睐。"
+        }
+      ]
+    },
+    {
+      "name": "能源与金融",
+      "etf": "XLE",
+      "leaders": [
+        {
+          "ticker": "XOM",
+          "changePct": "+1.68%",
+          "catalyst": "油价上涨支撑能源类资产估值修复。"
+        },
+        {
+          "ticker": "JPM",
+          "changePct": "+1.16%",
+          "catalyst": "金融板块作为周期性资产在宏观压力下的抗跌性表现。"
+        }
+      ]
+    }
+  ],
+  "movers": [
+    {
+      "ticker": "AMD",
+      "name": "超威半导体",
+      "changePct": "-5.73%",
+      "sector": "科技成长",
+      "newsAttribution": "行业轮动导致的高Beta资产抛售潮。",
+      "shortTermOutlook": "弱势盘整，短期缺乏反弹动力。",
+      "midTermLogic": "若无法守住关键技术位，将面临进一步估值回归。",
+      "invalidationLevel": "站稳前期跳空缺口之上。",
+      "rvol": "0.96x"
+    },
+    {
+      "ticker": "PLTR",
+      "name": "帕兰提尔",
+      "changePct": "-3.69%",
+      "sector": "科技成长",
+      "newsAttribution": "【纯技术面/资金轮动，无突发公告】",
+      "shortTermOutlook": "短期面临获利盘回吐压力。",
+      "midTermLogic": "基本面强劲但目前估值偏高，需等待回调企稳。",
+      "invalidationLevel": "突破近期高点则失效。",
+      "rvol": "0.73x"
+    }
+  ],
+  "causalChains": [
+    {
+      "driver": "避险需求激增",
+      "mechanism": "资金通过抛售高估值成长股切换至必需消费及医疗板块",
+      "beneficiary": "XLV",
+      "victim": "IXIC"
+    },
+    {
+      "driver": "地缘不确定性",
+      "mechanism": "推升能源与避险资产估值",
+      "beneficiary": "USO",
+      "victim": "XLK"
+    }
+  ],
+  "assets": [
+    {
+      "name": "标普500",
+      "ticker": "SPX",
+      "price": 7718.94,
+      "changePct": "-1.11%",
+      "trend": "down"
+    },
+    {
+      "name": "纳斯达克",
+      "ticker": "IXIC",
+      "price": 26692.87,
+      "changePct": "-1.88%",
+      "trend": "down"
+    },
+    {
+      "name": "美国原油基金ETF",
+      "ticker": "USO",
+      "price": 153.56,
+      "changePct": "+0.31%",
+      "trend": "up"
+    },
+    {
+      "name": "COMEX黄金",
+      "ticker": "GC=F",
+      "price": 4129.1,
+      "changePct": "+0.52%",
+      "trend": "up"
+    },
+    {
+      "name": "10年期美债",
+      "ticker": "^TNX",
+      "price": 5.19,
+      "changePct": "-0.52%",
+      "trend": "down"
+    },
+    {
+      "name": "美元指数",
+      "ticker": "DXY",
+      "price": 102.23,
+      "changePct": "-0.32%",
+      "trend": "down"
+    }
+  ]
+}
