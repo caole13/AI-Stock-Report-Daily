@@ -1,0 +1,239 @@
+{
+  "date": "2026-10-20",
+  "marketStatus": "温和上涨，分化加剧",
+  "macroSummary": {
+    "coreThesis": "市场在通胀预期的博弈下展现出极强的韧性，尽管科技巨头遭遇获利回吐，但医疗板块的结构性补涨支撑了标普 500 的重心上移，宏观环境维持高利率与美元走强的双重压力特征。",
+    "transmissionDetail": "10年期美债收益率下行至 5.117%，缓解了长端融资成本的压力，利好医疗与金融板块。美元指数小幅走强，大宗商品受到压制，原油与黄金双双收跌，反映出市场对全球宏观供需逻辑的避险情绪。",
+    "assets": [
+      {
+        "name": "标普500",
+        "ticker": "SPX",
+        "price": 7712.57,
+        "changePct": "+0.28%",
+        "trend": "up"
+      },
+      {
+        "name": "纳斯达克",
+        "ticker": "IXIC",
+        "price": 26424.82,
+        "changePct": "-0.02%",
+        "trend": "down"
+      },
+      {
+        "name": "美国原油基金ETF",
+        "ticker": "USO",
+        "price": 160.61,
+        "changePct": "-0.12%",
+        "trend": "down"
+      },
+      {
+        "name": "COMEX黄金",
+        "ticker": "GC=F",
+        "price": 4134.1,
+        "changePct": "-0.21%",
+        "trend": "down"
+      },
+      {
+        "name": "10年期美债",
+        "ticker": "^TNX",
+        "price": 5.117,
+        "changePct": "-0.37%",
+        "trend": "down"
+      },
+      {
+        "name": "美元指数",
+        "ticker": "DXY",
+        "price": 101.78,
+        "changePct": "+0.08%",
+        "trend": "up"
+      }
+    ]
+  },
+  "aiReport": {
+    "dailyExecutiveSummary": "今日市场呈现典型的风格轮动格局，标普 500 指数微涨 0.28%，主要得益于医疗健康板块的强劲表现，抵消了科技巨头如 NVDA 和 AAPL 的回调压力。宏观层面，10年期美债收益率小幅下行至 5.117%，并未能激发高成长股的反弹欲望，反而资金流向具有防御属性及估值相对合理的板块。美元指数的轻微反弹令以原油和黄金为代表的大宗商品表现疲软。当前市场核心矛盾在于高估值科技股的成长动能能否在财报季持续超预期，资金目前正从过度拥挤的AI概念中撤离，转向具备确定性现金流及业绩支撑的防御性品种。这种配置策略反映了机构投资者在当前地缘风险与货币政策不确定性下的防御性转向，市场整体进入震荡整理阶段，寻找新一轮驱动力。",
+    "executiveSnapshot": "市场在科技股获利回吐与防御板块补涨之间维持动态平衡，医疗行业龙头 LLY 与 UNH 成为今日拉动指数的定海神针，大盘整体风险偏好趋于谨慎。",
+    "heavyweightInsights": [
+      {
+        "title": "医疗板块价值重估",
+        "impact": "LLY 与 UNH 的强劲表现表明资金正寻找具备长效研发管线与稳健盈利模式的避险资产。"
+      },
+      {
+        "title": "科技股动能减弱",
+        "impact": "科技成长股领头羊如 NVDA、AAPL 面临估值挤压，RVOL 数据较低显示买盘意愿在财报季前趋于观望。"
+      }
+    ],
+    "sectorRotations": {
+      "growth": "科技成长板块短期受压，投资者对超额利润的预期边际递减，导致资金流出。",
+      "defensive": "医疗健康板块成为避险首选，吸引了寻找确定性回报的配置资金。",
+      "capitalFlow": "资金从前期领涨的 AI 核心标的转向估值更具吸引力的医疗及部分优质金融个股。"
+    },
+    "tacticalOutlook": {
+      "bullIdeas": "关注具备强力现金流与稳健分红的医疗健康板块，以及受益于利差修复的大型金融机构。",
+      "bearIdeas": "警惕估值溢价过高的半导体与大型科技股，在财报披露前若缺乏超预期支撑，下行风险较大。"
+    }
+  },
+  "sectors": [
+    {
+      "name": "科技成长",
+      "etf": "XLK",
+      "leaders": [
+        {
+          "ticker": "NVDA",
+          "changePct": "-0.29%",
+          "catalyst": "【纯技术面/资金轮动，无突发公告】"
+        },
+        {
+          "ticker": "MSFT",
+          "changePct": "-0.31%",
+          "catalyst": "【纯技术面/资金轮动，无突发公告】"
+        },
+        {
+          "ticker": "AAPL",
+          "changePct": "-1.00%",
+          "catalyst": "【纯技术面/资金轮动，无突发公告】"
+        }
+      ]
+    },
+    {
+      "name": "医疗健康",
+      "etf": "XLV",
+      "leaders": [
+        {
+          "ticker": "LLY",
+          "changePct": "+3.49%",
+          "catalyst": "市场对公司新药获批进度及市场渗透率表现出更强的乐观预期"
+        },
+        {
+          "ticker": "UNH",
+          "changePct": "+3.04%",
+          "catalyst": "季度业绩预期的乐观情绪带动防御性资金配置"
+        }
+      ]
+    },
+    {
+      "name": "可选消费",
+      "etf": "XLY",
+      "leaders": [
+        {
+          "ticker": "AMZN",
+          "changePct": "+0.07%",
+          "catalyst": "零售业务稳定性提供估值支撑"
+        },
+        {
+          "ticker": "TSLA",
+          "changePct": "+1.54%",
+          "catalyst": "市场对于电动车后续交付数据回暖的预期"
+        }
+      ]
+    },
+    {
+      "name": "能源与金融",
+      "etf": "XLE",
+      "leaders": [
+        {
+          "ticker": "XOM",
+          "changePct": "-0.24%",
+          "catalyst": "受制于国际原油价格的小幅走弱"
+        },
+        {
+          "ticker": "JPM",
+          "changePct": "+0.52%",
+          "catalyst": "金融板块受利率环境优化带来的情绪提振"
+        }
+      ]
+    }
+  ],
+  "movers": [
+    {
+      "ticker": "LLY",
+      "name": "礼来",
+      "changePct": "+3.49%",
+      "sector": "医疗健康",
+      "newsAttribution": "新药临床进展超预期带来情绪驱动",
+      "shortTermOutlook": "偏强，关注突破前高压力",
+      "midTermLogic": "创新药管线具备持续长效增长潜力",
+      "invalidationLevel": "回调至 20 日均线下方",
+      "rvol": "1.2x"
+    },
+    {
+      "ticker": "TSLA",
+      "name": "特斯拉",
+      "changePct": "+1.54%",
+      "sector": "可选消费",
+      "newsAttribution": "技术性修复与市场对交付预期提升",
+      "shortTermOutlook": "震荡向上",
+      "midTermLogic": "销量回升是核心支撑逻辑",
+      "invalidationLevel": "跌破 180 美元关键支撑",
+      "rvol": "0.81x"
+    },
+    {
+      "ticker": "AAPL",
+      "name": "苹果",
+      "changePct": "-1.00%",
+      "sector": "科技成长",
+      "newsAttribution": "【纯技术面/资金轮动，无突发公告】",
+      "shortTermOutlook": "偏弱，面临流动性压力",
+      "midTermLogic": "高估值环境下需要强劲财报证明成长性",
+      "invalidationLevel": "收复并站稳 230 美元",
+      "rvol": "0.81x"
+    }
+  ],
+  "causalChains": [
+    {
+      "driver": "美债收益率下行",
+      "mechanism": "融资成本预期降低，提升防御性板块相对估值优势",
+      "beneficiary": "医疗健康板块",
+      "victim": "科技成长板块"
+    },
+    {
+      "driver": "美元指数微涨",
+      "mechanism": "压制非美货币计价的大宗商品吸引力",
+      "beneficiary": "美元资产",
+      "victim": "原油与黄金资产"
+    }
+  ],
+  "assets": [
+    {
+      "name": "标普500",
+      "ticker": "SPX",
+      "price": 7712.57,
+      "changePct": "+0.28%",
+      "trend": "up"
+    },
+    {
+      "name": "纳斯达克",
+      "ticker": "IXIC",
+      "price": 26424.82,
+      "changePct": "-0.02%",
+      "trend": "down"
+    },
+    {
+      "name": "美国原油基金ETF",
+      "ticker": "USO",
+      "price": 160.61,
+      "changePct": "-0.12%",
+      "trend": "down"
+    },
+    {
+      "name": "COMEX黄金",
+      "ticker": "GC=F",
+      "price": 4134.1,
+      "changePct": "-0.21%",
+      "trend": "down"
+    },
+    {
+      "name": "10年期美债",
+      "ticker": "^TNX",
+      "price": 5.117,
+      "changePct": "-0.37%",
+      "trend": "down"
+    },
+    {
+      "name": "美元指数",
+      "ticker": "DXY",
+      "price": 101.78,
+      "changePct": "+0.08%",
+      "trend": "up"
+    }
+  ]
+}
