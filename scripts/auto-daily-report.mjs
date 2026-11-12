@@ -49,61 +49,117 @@ const SECTOR_SYMBOLS = {
   AMD: "AMD"
 };
 
+// 分批并行抓取行情：每批 8 只，单个失败不影响同批其他标的
+// onResult(key, ticker, quote, err)：quote 成功时 err 为 null；失败时 quote 为 null
+async function fetchQuotesInBatches(entries, onResult) {
+  const BATCH_SIZE = 8;
+  for (let i = 0; i < entries.length; i += BATCH_SIZE) {
+    const batch = entries.slice(i, i + BATCH_SIZE);
+    const settled = await Promise.allSettled(
+      batch.map(([key, ticker]) =>
+        yf.quote(ticker)
+          .then((quote) => ({ key, ticker, quote }))
+          .catch((err) => {
+            err.key = key;
+            err.ticker = ticker;
+            throw err;
+          })
+      )
+    );
+    for (const s of settled) {
+      if (s.status === "fulfilled") {
+        onResult(s.value.key, s.value.ticker, s.value.quote, null);
+      } else {
+        onResult(s.reason.key, s.reason.ticker, null, s.reason);
+      }
+    }
+  }
+}
+
 // Step 1（代码层 - 确定性抓取）：获取当日收盘的准确高频价格、涨跌幅、10年美债收益率等
 async function fetchDeterministicMarketData() {
   console.log("📊 [Step 1: 代码层 - 确定性抓取] 正在调用 Yahoo Finance 官方接口拉取真实结算数据...");
   const marketData = {};
-  
-  for (const [key, ticker] of Object.entries(MACRO_SYMBOLS)) {
-    try {
-      const quote = await yf.quote(ticker);
-      const price = quote.regularMarketPrice ?? quote.postMarketPrice ?? 0;
-      const changePercent = quote.regularMarketChangePercent ?? 0;
-      marketData[key] = {
-        name: quote.shortName || (key === "SPX" ? "标普 500" : key === "IXIC" ? "纳斯达克综合指数" : key === "USO" ? "美国原油基金 ETF" : key === "GC" ? "COMEX 黄金主力期货" : key === "TNX" ? "10年期美债收益率" : "美元指数"),
-        ticker: key === "GC" ? "GC=F" : key === "TNX" ? "^TNX" : key,
-        rawTicker: ticker,
-        price: Number(price.toFixed(price < 10 ? 3 : 2)),
-        changePct: (changePercent > 0 ? "+" : "") + changePercent.toFixed(2) + "%",
-        trend: changePercent >= 0 ? "up" : "down"
-      };
-    } catch (err) {
-      console.error(`❌ 获取标的 ${ticker} 数据失败:`, err.message);
+
+  await fetchQuotesInBatches(Object.entries(MACRO_SYMBOLS), (key, ticker, quote, err) => {
+    if (err || !quote) {
+      console.error(`❌ 获取标的 ${ticker} 数据失败:`, err?.message);
       marketData[key] = null;
+      return;
     }
-  }
+    const price = quote.regularMarketPrice ?? quote.postMarketPrice ?? 0;
+    const changePercent = quote.regularMarketChangePercent ?? 0;
+    marketData[key] = {
+      name: quote.shortName || (key === "SPX" ? "标普 500" : key === "IXIC" ? "纳斯达克综合指数" : key === "USO" ? "美国原油基金 ETF" : key === "GC" ? "COMEX 黄金主力期货" : key === "TNX" ? "10年期美债收益率" : "美元指数"),
+      ticker: key === "GC" ? "GC=F" : key === "TNX" ? "^TNX" : key,
+      rawTicker: ticker,
+      price: Number(price.toFixed(price < 10 ? 3 : 2)),
+      changePct: (changePercent > 0 ? "+" : "") + changePercent.toFixed(2) + "%",
+      trend: changePercent >= 0 ? "up" : "down"
+    };
+  });
 
   // 抓取重点大宗商品与板块龙头异动数据
   const allExtra = { ...COMMODITY_SYMBOLS, ...SECTOR_SYMBOLS };
   const extraData = {};
-  for (const [key, ticker] of Object.entries(allExtra)) {
-    try {
-      const quote = await yf.quote(ticker);
-      const price = quote.regularMarketPrice ?? quote.postMarketPrice ?? 0;
-      const changePercent = quote.regularMarketChangePercent ?? 0;
-      const volume = quote.regularMarketVolume ?? 0;
-      const avgVol = quote.averageDailyVolume3Month || quote.averageDailyVolume10Day || volume || 1;
-      const rvol = Number((volume / avgVol).toFixed(2));
-      extraData[key] = {
-        name: quote.shortName || key,
-        ticker: key,
-        rawTicker: ticker,
-        price: Number(price.toFixed(price < 10 ? 3 : 2)),
-        changePct: (changePercent > 0 ? "+" : "") + changePercent.toFixed(2) + "%",
-        trend: changePercent >= 0 ? "up" : "down",
-        volume,
-        rvol: isNaN(rvol) ? 1.0 : rvol
-      };
-    } catch (err) {
-      console.warn(`⚠️ 获取辅助标的 ${ticker} 数据告警:`, err.message);
+  await fetchQuotesInBatches(Object.entries(allExtra), (key, ticker, quote, err) => {
+    if (err || !quote) {
+      console.warn(`⚠️ 获取辅助标的 ${ticker} 数据告警:`, err?.message);
+      return;
     }
-  }
+    const price = quote.regularMarketPrice ?? quote.postMarketPrice ?? 0;
+    const changePercent = quote.regularMarketChangePercent ?? 0;
+    const volume = quote.regularMarketVolume ?? 0;
+    const avgVol = quote.averageDailyVolume3Month || quote.averageDailyVolume10Day || volume || 1;
+    const rvol = Number((volume / avgVol).toFixed(2));
+    extraData[key] = {
+      name: quote.shortName || key,
+      ticker: key,
+      rawTicker: ticker,
+      price: Number(price.toFixed(price < 10 ? 3 : 2)),
+      changePct: (changePercent > 0 ? "+" : "") + changePercent.toFixed(2) + "%",
+      trend: changePercent >= 0 ? "up" : "down",
+      volume,
+      rvol: isNaN(rvol) ? 1.0 : rvol
+    };
+  });
 
   return { macro: marketData, extra: extraData };
 }
 
+// 失败告警：校验失败时自动建一个 GitHub Issue，避免失败悄悄过去
+// 依赖 workflow 传入的 GITHUB_TOKEN 与 GITHUB_REPOSITORY；本地无 token 时仅告警不建 Issue
+async function createFailureIssue(title, body) {
+  const token = process.env.GITHUB_TOKEN;
+  const repo = process.env.GITHUB_REPOSITORY; // owner/repo
+  if (!token || !repo) {
+    console.warn("⚠️ 未配置 GITHUB_TOKEN / GITHUB_REPOSITORY，跳过自动建 Issue 告警。");
+    return;
+  }
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github+json",
+        "Content-Type": "application/json",
+        "X-GitHub-Api-Version": "2022-11-28"
+      },
+      body: JSON.stringify({ title, body })
+    });
+    if (!res.ok) {
+      console.warn(`⚠️ 自动建 Issue 失败: HTTP ${res.status} ${await res.text()}`);
+    } else {
+      const data = await res.json();
+      console.log(`🚨 已自动创建告警 Issue #${data.number}: ${data.html_url}`);
+    }
+  } catch (err) {
+    console.warn("⚠️ 自动建 Issue 异常:", err.message);
+  }
+}
+
 // Step 3（校验层 - Schema 强校验）：在数据入库保存为 latestReport.json 之前，加入字段断言拦截机制
-function validateReportData(reportJson) {
+async function validateReportData(reportJson) {
   console.log("🛡️ [Step 3: 校验层 - Schema 强校验与断言拦截] 正在执行数据围栏验证...");
   const errors = [];
 
@@ -134,6 +190,13 @@ function validateReportData(reportJson) {
 
   if (errors.length > 0) {
     console.error("❌ 数据质量校验未通过，拦截构建：\n", errors.join("\n"));
+    const runUrl = process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
+      ? `https://github.com/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}`
+      : "（本地运行或未知）";
+    await createFailureIssue(
+      `【日报生成失败】${reportJson.date} 数据校验未通过`,
+      `日报生成流水线在数据校验环节失败，未生成新报告。\n\n- 目标交易日：${reportJson.date}\n- 失败原因：\n${errors.map((e) => `  - ${e}`).join("\n")}\n- Workflow run：${runUrl}`
+    );
     process.exit(1); // 退出并报错，阻止无效 commit 和网页错误更新
   }
   
@@ -326,6 +389,21 @@ function isUSMarketHolidayOrWeekend(now = new Date()) {
 async function runAutomation() {
   const dateArg = process.argv.find((a) => a.startsWith("--date="))?.split("=")[1] || process.env.TARGET_DATE;
   const forceRun = process.env.FORCE_RUN === "true" || process.argv.includes("--force") || Boolean(dateArg);
+
+  // 美东 17 点守卫（双触发去重）：workflow 在 UTC 21:18 与 22:18 各触发一次，
+  // 只有美东时间 17 点那次才真正跑；手动 workflow_dispatch / 本地调试（--force）不受影响
+  if (process.env.GITHUB_EVENT_NAME === "schedule" && !forceRun) {
+    const nyHour = Number(new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour: "numeric",
+      hour12: false
+    }).format(new Date()));
+    if (nyHour !== 17) {
+      console.log(`[Skip] 当前美东时间 ${nyHour} 点，非 17 点定时触发，跳过本次运行（双触发去重）。`);
+      process.exit(0);
+    }
+  }
+
   const holidayCheck = isUSMarketHolidayOrWeekend(new Date());
 
   if (holidayCheck.isHoliday && !forceRun) {
@@ -617,7 +695,7 @@ ${groundTruthText}
   }
 
   // 校验层 - Schema 强校验与断言拦截，拦截任何非法或空值数据
-  validateReportData(reportJson);
+  await validateReportData(reportJson);
 
   const dataDir = path.resolve(projectRoot, "src/data/reports");
   if (!fs.existsSync(dataDir)) {

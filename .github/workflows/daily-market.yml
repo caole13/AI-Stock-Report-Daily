@@ -2,8 +2,10 @@ name: Auto Daily Market Report Pipeline
 
 on:
   schedule:
-    # 周一至周五美东时间 17:18 自动触发 (夏令时 UTC 21:18，避开盘中与17:00官方结算延迟期，确保获取最终结算收盘价)
-    - cron: '18 21 * * 1-5'
+    # 周一至周五美东时间 17:18 自动触发；夏令时 UTC 21:18、冬令时 UTC 22:18 各触发一次，
+    # 脚本开头按美东时间 17 点守卫去重（仅 schedule 触发时生效，手动触发不受影响），
+    # 避开盘中与 17:00 官方结算延迟期，确保获取最终结算收盘价
+    - cron: '18 21,22 * * 1-5'
   workflow_dispatch:
 
 jobs:
@@ -11,6 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
 
     steps:
       - name: 检出仓库代码
@@ -24,6 +27,14 @@ jobs:
           node-version: 22
        
 
+      - name: 缓存 npm 依赖
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
       - name: 安装依赖
         run: |
           npm install
@@ -31,6 +42,7 @@ jobs:
       - name: 运行自动化研报生成流水线
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           node scripts/auto-daily-report.mjs
 
