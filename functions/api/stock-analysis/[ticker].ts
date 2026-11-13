@@ -2,6 +2,12 @@ interface Env {
   GEMINI_API_KEY: string;
 }
 
+type PagesFunction<T = any> = (context: {
+  params: Record<string, string | string[]>;
+  env: T;
+  request: Request;
+}) => Promise<Response> | Response;
+
 export const onRequestGet: PagesFunction<Env> = async (context) => {
   const { params, env } = context;
   const ticker = String(params.ticker || "").toUpperCase().trim();

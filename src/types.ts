@@ -45,6 +45,13 @@ export interface SectorLeaderStock {
   sparkline?: number[];
   reason?: string;
   catalyst?: string;
+  technicals?: {
+    ema21?: number | null;
+    ema55?: number | null;
+    ema144?: number | null;
+    ma50?: number | null;
+    ma200?: number | null;
+  };
 }
 
 export interface SectorCategory {
@@ -85,6 +92,13 @@ export interface MoverStockItem {
   shortTermOutlook?: string;
   midTermLogic?: string;
   invalidationLevel?: string;
+  technicals?: {
+    ema21?: number | null;
+    ema55?: number | null;
+    ema144?: number | null;
+    ma50?: number | null;
+    ma200?: number | null;
+  };
   outlook?: {
     shortTermTrend?: string;
     midTermLogic?: string;
@@ -187,6 +201,14 @@ export interface HistoricalDailyData {
   weekday: string;
   tagline: string;
   marketStatus?: string;
+  isFallback?: boolean;
+  technicalIndicators?: Record<string, {
+    ema21?: number | null;
+    ema55?: number | null;
+    ema144?: number | null;
+    ma50?: number | null;
+    ma200?: number | null;
+  }>;
   marketTone: '偏多' | '偏空' | '震荡' | '分化' | '高波动' | '防御性震荡';
   macro: MacroData;
   aiReport: DailyAiReport;

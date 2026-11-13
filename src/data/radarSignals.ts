@@ -31,17 +31,23 @@ export function getPriceActionSignals(
     const changePercent = unified.changePercent ?? 0;
     const volumeRatio = unified.rvol ? `${unified.rvol}x` : "1.12x";
 
-    // 技术均线系统计算 (EMA 21 快线, EMA 55 基准线, EMA 144 大周期支撑)
-    const ema21 = Number((price * (changePercent >= 0 ? 0.988 : 1.012)).toFixed(2));
-    const ema55 = Number((price * (changePercent >= 0 ? 0.965 : 1.028)).toFixed(2));
-    const ema144 = Number((price * (changePercent >= 0 ? 0.932 : 1.055)).toFixed(2));
+    // 技术均线系统计算 (优先从服务端真均线读取 EMA21 快线, EMA55 基准线, EMA144 大周期支撑)
+    const ema21 = unified.technicals?.ema21 ?? Number((price * (changePercent >= 0 ? 0.988 : 1.012)).toFixed(2));
+    const ema55 = unified.technicals?.ema55 ?? Number((price * (changePercent >= 0 ? 0.965 : 1.028)).toFixed(2));
+    const ema144 = unified.technicals?.ema144 ?? Number((price * (changePercent >= 0 ? 0.932 : 1.055)).toFixed(2));
 
     const ema1hTrend: PriceActionSignal["ema1hTrend"] =
-      changePercent >= 0.3
-        ? "bullish"
-        : changePercent <= -1.2
-        ? "bearish"
-        : "consolidation";
+      ema21 && ema55 && ema144
+        ? (ema21 > ema55 && ema55 > ema144
+            ? "bullish"
+            : ema21 < ema55 && ema55 < ema144
+            ? "bearish"
+            : "consolidation")
+        : (changePercent >= 0.3
+            ? "bullish"
+            : changePercent <= -1.2
+            ? "bearish"
+            : "consolidation");
 
     // 基于 0 穿刺与日内高低点的结构性防守止损位
     const lowAnchor = unified.low && unified.low > 0 ? unified.low : price * 0.968;
@@ -144,8 +150,8 @@ export function getBottomHuntSignals(
     const price = unified.price && unified.price > 0 ? unified.price : 100;
     const changePercent = unified.changePercent ?? 0;
 
-    // MA200 年线基准测算
-    const ma200Price = Number((price * (changePercent >= 0 ? 0.885 : 1.12)).toFixed(2));
+    // MA200 年线基准测算 (优先从服务端真均线读取)
+    const ma200Price = unified.technicals?.ma200 ?? Number((price * (changePercent >= 0 ? 0.885 : 1.12)).toFixed(2));
     const ma200Status: 'above' | 'below' = price >= ma200Price ? 'above' : 'below';
     const diffPct = (((price - ma200Price) / ma200Price) * 100).toFixed(1);
     const ma200Desc = `${price >= ma200Price ? '处于 MA200 上方' : '处于 MA200 下方'} (${diffPct.startsWith('-') ? '' : '+'}${diffPct}%) · 年线真实基准 $${ma200Price.toFixed(2)}`;

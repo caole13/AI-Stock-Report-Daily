@@ -1,9 +1,49 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import YahooFinance from "yahoo-finance2";
 import fs from "fs";
 import path from "path";
+import https from "https";
+import http from "http";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+
+// 针对本地 Node 16 与 GitHub Actions Node 22 的运行时流与 fetch 垫片
+if (typeof globalThis.ReadableStream === "undefined") {
+  try {
+    const web = await import("stream/web");
+    globalThis.ReadableStream = web.ReadableStream;
+  } catch (e) {}
+}
+
+if (typeof globalThis.fetch === "undefined") {
+  globalThis.fetch = function(url, options = {}) {
+    return new Promise((resolve, reject) => {
+      const u = new URL(url);
+      const client = u.protocol === "https:" ? https : http;
+      const headers = { "User-Agent": "Mozilla/5.0", ...(options.headers || {}) };
+      const req = client.request(u, {
+        method: options.method || "GET",
+        headers
+      }, (res) => {
+        const chunks = [];
+        res.on("data", d => chunks.push(d));
+        res.on("end", () => {
+          const body = Buffer.concat(chunks).toString();
+          resolve({
+            ok: res.statusCode >= 200 && res.statusCode < 300,
+            status: res.statusCode,
+            statusText: res.statusMessage,
+            text: async () => body,
+            json: async () => JSON.parse(body)
+          });
+        });
+      });
+      req.on("error", reject);
+      if (options.body) req.write(options.body);
+      req.end();
+    });
+  };
+}
+
+const { GoogleGenAI, Type } = await import("@google/genai");
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -12,15 +52,12 @@ const projectRoot = path.resolve(__dirname, "..");
 dotenv.config({ path: path.join(projectRoot, ".env") });
 
 const apiKey = process.env.GEMINI_API_KEY;
+const ai = apiKey ? new GoogleGenAI({ apiKey }) : null;
 if (!apiKey) {
-  console.error("❌ 缺少 GEMINI_API_KEY 环境变量！");
-  process.exit(1);
+  console.warn("⚠️ 未检测到 GEMINI_API_KEY 环境变量，AI 生成阶段将自动进入高可用确定性量化投研引擎！");
 }
 
-const ai = new GoogleGenAI({ apiKey });
-const yf = typeof YahooFinance === "function" ? new YahooFinance({ suppressNotices: ["yahooSurvey"] }) : YahooFinance;
-
-// 1. 定义监控的核心大盘与宏观标的 Ticker 映射
+// 1. 核心大盘与宏观标的 Ticker 映射
 const MACRO_SYMBOLS = {
   SPX: "^GSPC",       // 标普 500
   IXIC: "^IXIC",      // 纳斯达克综合指数
@@ -30,108 +67,225 @@ const MACRO_SYMBOLS = {
   DXY: "DX-Y.NYB"     // 美元指数
 };
 
-// 辅助大宗商品与核心行业龙头池
 const COMMODITY_SYMBOLS = {
   WTI: "CL=F"         // WTI原油主力期货
 };
 
-const SECTOR_SYMBOLS = {
-  NVDA: "NVDA",
-  MSFT: "MSFT",
-  AAPL: "AAPL",
-  LLY: "LLY",
-  UNH: "UNH",
-  AMZN: "AMZN",
-  TSLA: "TSLA",
-  XOM: "XOM",
-  JPM: "JPM",
+// 2. 标普 11 大行业板块与龙头股完整映射配置
+const SECTORS_CONFIG = [
+  {
+    id: "XLK",
+    name: "信息技术与半导体",
+    etf: "XLK",
+    leaders: ["NVDA", "MSFT", "AAPL"]
+  },
+  {
+    id: "XLV",
+    name: "医疗与生物医药",
+    etf: "XLV",
+    leaders: ["LLY", "UNH", "JNJ"]
+  },
+  {
+    id: "XLY",
+    name: "可选消费与电商",
+    etf: "XLY",
+    leaders: ["AMZN", "TSLA", "HD"]
+  },
+  {
+    id: "XLP",
+    name: "必选消费与零售",
+    etf: "XLP",
+    leaders: ["PG", "COST", "KO"]
+  },
+  {
+    id: "XLF",
+    name: "金融与银行保险",
+    etf: "XLF",
+    leaders: ["JPM", "BAC", "V"]
+  },
+  {
+    id: "XLI",
+    name: "工业制造与航空国防",
+    etf: "XLI",
+    leaders: ["CAT", "GE", "LMT"]
+  },
+  {
+    id: "XLB",
+    name: "基础材料与化学",
+    etf: "XLB",
+    leaders: ["LIN", "SHW", "FCX"]
+  },
+  {
+    id: "XLU",
+    name: "公用事业与绿电",
+    etf: "XLU",
+    leaders: ["NEE", "SO", "CEG"]
+  },
+  {
+    id: "XLRE",
+    name: "房地产与基础设施REITs",
+    etf: "XLRE",
+    leaders: ["PLD", "AMT", "EQIX"]
+  },
+  {
+    id: "XLC",
+    name: "通讯服务与数字娱乐",
+    etf: "XLC",
+    leaders: ["GOOGL", "META", "NFLX"]
+  },
+  {
+    id: "XLE",
+    name: "能源与石油天然气",
+    etf: "XLE",
+    leaders: ["XOM", "CVX", "SLB"]
+  }
+];
+
+// 补充雷达及异动跟踪标的
+const EXTRA_WATCH_SYMBOLS = {
   PLTR: "PLTR",
-  AMD: "AMD"
+  AMD: "AMD",
+  QQQ: "QQQ",
+  SPY: "SPY",
+  DELL: "DELL",
+  CRWD: "CRWD"
 };
 
-// 分批并行抓取行情：每批 8 只，单个失败不影响同批其他标的
-// onResult(key, ticker, quote, err)：quote 成功时 err 为 null；失败时 quote 为 null
-async function fetchQuotesInBatches(entries, onResult) {
-  const BATCH_SIZE = 8;
-  for (let i = 0; i < entries.length; i += BATCH_SIZE) {
-    const batch = entries.slice(i, i + BATCH_SIZE);
-    const settled = await Promise.allSettled(
-      batch.map(([key, ticker]) =>
-        yf.quote(ticker)
-          .then((quote) => ({ key, ticker, quote }))
-          .catch((err) => {
-            err.key = key;
-            err.ticker = ticker;
-            throw err;
-          })
-      )
-    );
-    for (const s of settled) {
-      if (s.status === "fulfilled") {
-        onResult(s.value.key, s.value.ticker, s.value.quote, null);
-      } else {
-        onResult(s.reason.key, s.reason.ticker, null, s.reason);
-      }
-    }
+// 均线算法：SMA 与 EMA
+function calcSMA(arr, period) {
+  if (!arr || arr.length < period) return null;
+  const slice = arr.slice(-period);
+  return Number((slice.reduce((a, b) => a + b, 0) / period).toFixed(2));
+}
+
+function calcEMA(arr, period) {
+  if (!arr || arr.length < period) return null;
+  const k = 2 / (period + 1);
+  let ema = arr.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < arr.length; i++) {
+    ema = arr[i] * k + ema * (1 - k);
   }
+  return Number(ema.toFixed(2));
 }
 
-// Step 1（代码层 - 确定性抓取）：获取当日收盘的准确高频价格、涨跌幅、10年美债收益率等
-async function fetchDeterministicMarketData() {
-  console.log("📊 [Step 1: 代码层 - 确定性抓取] 正在调用 Yahoo Finance 官方接口拉取真实结算数据...");
-  const marketData = {};
+// 统一原生 HTTP 数据获取函数：拉取 1 年日线数据，并计算真实 EMA/MA 与 RVOL
+function fetchTickerData(ticker, retryCount = 2) {
+  return new Promise((resolve) => {
+    const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d`;
+    
+    const attempt = (remainingRetries) => {
+      const req = https.get(url, {
+        headers: {
+          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          "Accept": "application/json"
+        },
+        timeout: 10000
+      }, (res) => {
+        let data = "";
+        res.on("data", chunk => data += chunk);
+        res.on("end", () => {
+          try {
+            if (res.statusCode !== 200) {
+              throw new Error(`HTTP ${res.statusCode}`);
+            }
+            const json = JSON.parse(data);
+            const result = json.chart?.result?.[0];
+            if (!result) {
+              throw new Error("No chart result found");
+            }
 
-  await fetchQuotesInBatches(Object.entries(MACRO_SYMBOLS), (key, ticker, quote, err) => {
-    if (err || !quote) {
-      console.error(`❌ 获取标的 ${ticker} 数据失败:`, err?.message);
-      marketData[key] = null;
-      return;
-    }
-    const price = quote.regularMarketPrice ?? quote.postMarketPrice ?? 0;
-    const changePercent = quote.regularMarketChangePercent ?? 0;
-    marketData[key] = {
-      name: quote.shortName || (key === "SPX" ? "标普 500" : key === "IXIC" ? "纳斯达克综合指数" : key === "USO" ? "美国原油基金 ETF" : key === "GC" ? "COMEX 黄金主力期货" : key === "TNX" ? "10年期美债收益率" : "美元指数"),
-      ticker: key === "GC" ? "GC=F" : key === "TNX" ? "^TNX" : key,
-      rawTicker: ticker,
-      price: Number(price.toFixed(price < 10 ? 3 : 2)),
-      changePct: (changePercent > 0 ? "+" : "") + changePercent.toFixed(2) + "%",
-      trend: changePercent >= 0 ? "up" : "down"
+            const meta = result.meta || {};
+            const quote = result.indicators?.quote?.[0] || {};
+            const rawCloses = quote.close || [];
+            const rawVolumes = quote.volume || [];
+            const closes = rawCloses.filter(c => c !== null && !isNaN(c));
+            const volumes = rawVolumes.filter(v => v !== null && !isNaN(v));
+
+            const price = meta.regularMarketPrice ?? (closes.length > 0 ? closes[closes.length - 1] : 0);
+            const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : price);
+            const changePctNum = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+            const changePct = (changePctNum > 0 ? "+" : "") + changePctNum.toFixed(2) + "%";
+
+            // RVOL 测算：当日成交量 / 过去 30 个交易日平均成交量
+            const lastVol = meta.regularMarketVolume ?? (volumes.length > 0 ? volumes[volumes.length - 1] : 0);
+            const avgVolSlice = volumes.slice(-30);
+            const avgVol = avgVolSlice.length > 0 ? avgVolSlice.reduce((a, b) => a + b, 0) / avgVolSlice.length : lastVol;
+            const rvol = avgVol > 0 ? Number((lastVol / avgVol).toFixed(2)) : 1.0;
+
+            const technicals = {
+              ema21: calcEMA(closes, 21),
+              ema55: calcEMA(closes, 55),
+              ema144: calcEMA(closes, 144),
+              ma50: calcSMA(closes, 50),
+              ma200: calcSMA(closes, 200)
+            };
+
+            resolve({
+              ticker,
+              name: meta.shortName || ticker,
+              price: Number(price.toFixed(price < 10 ? 3 : 2)),
+              prevClose: Number(prevClose.toFixed(prevClose < 10 ? 3 : 2)),
+              changePct,
+              changePercent: changePctNum,
+              trend: changePctNum >= 0 ? "up" : "down",
+              volume: lastVol,
+              rvol,
+              technicals
+            });
+          } catch (err) {
+            if (remainingRetries > 0) {
+              setTimeout(() => attempt(remainingRetries - 1), 1000);
+            } else {
+              console.warn(`⚠️ 拉取标的 ${ticker} 行情失败: ${err.message}`);
+              resolve(null);
+            }
+          }
+        });
+      });
+
+      req.on("error", (err) => {
+        if (remainingRetries > 0) {
+          setTimeout(() => attempt(remainingRetries - 1), 1000);
+        } else {
+          console.warn(`⚠️ 网络异常拉取标的 ${ticker} 失败: ${err.message}`);
+          resolve(null);
+        }
+      });
+
+      req.on("timeout", () => {
+        req.destroy();
+        if (remainingRetries > 0) {
+          setTimeout(() => attempt(remainingRetries - 1), 1000);
+        } else {
+          console.warn(`⚠️ 拉取标的 ${ticker} 超时`);
+          resolve(null);
+        }
+      });
     };
-  });
 
-  // 抓取重点大宗商品与板块龙头异动数据
-  const allExtra = { ...COMMODITY_SYMBOLS, ...SECTOR_SYMBOLS };
-  const extraData = {};
-  await fetchQuotesInBatches(Object.entries(allExtra), (key, ticker, quote, err) => {
-    if (err || !quote) {
-      console.warn(`⚠️ 获取辅助标的 ${ticker} 数据告警:`, err?.message);
-      return;
-    }
-    const price = quote.regularMarketPrice ?? quote.postMarketPrice ?? 0;
-    const changePercent = quote.regularMarketChangePercent ?? 0;
-    const volume = quote.regularMarketVolume ?? 0;
-    const avgVol = quote.averageDailyVolume3Month || quote.averageDailyVolume10Day || volume || 1;
-    const rvol = Number((volume / avgVol).toFixed(2));
-    extraData[key] = {
-      name: quote.shortName || key,
-      ticker: key,
-      rawTicker: ticker,
-      price: Number(price.toFixed(price < 10 ? 3 : 2)),
-      changePct: (changePercent > 0 ? "+" : "") + changePercent.toFixed(2) + "%",
-      trend: changePercent >= 0 ? "up" : "down",
-      volume,
-      rvol: isNaN(rvol) ? 1.0 : rvol
-    };
+    attempt(retryCount);
   });
-
-  return { macro: marketData, extra: extraData };
 }
 
-// 失败告警：校验失败时自动建一个 GitHub Issue，避免失败悄悄过去
-// 依赖 workflow 传入的 GITHUB_TOKEN 与 GITHUB_REPOSITORY；本地无 token 时仅告警不建 Issue
+// 分批并发拉取行情（批大小为 8）
+async function fetchBatchTickerData(tickers, concurrency = 8) {
+  const results = {};
+  for (let i = 0; i < tickers.length; i += concurrency) {
+    const batch = tickers.slice(i, i + concurrency);
+    const batchResults = await Promise.all(batch.map(t => fetchTickerData(t)));
+    batch.forEach((t, idx) => {
+      if (batchResults[idx]) {
+        results[t] = batchResults[idx];
+      }
+    });
+  }
+  return results;
+}
+
+// 失败告警：自动在 GitHub 建 Issue 报备
 async function createFailureIssue(title, body) {
   const token = process.env.GITHUB_TOKEN;
-  const repo = process.env.GITHUB_REPOSITORY; // owner/repo
+  const repo = process.env.GITHUB_REPOSITORY;
   if (!token || !repo) {
     console.warn("⚠️ 未配置 GITHUB_TOKEN / GITHUB_REPOSITORY，跳过自动建 Issue 告警。");
     return;
@@ -158,9 +312,9 @@ async function createFailureIssue(title, body) {
   }
 }
 
-// Step 3（校验层 - Schema 强校验）：在数据入库保存为 latestReport.json 之前，加入字段断言拦截机制
+// Step 3 强校验与断言拦截机制
 async function validateReportData(reportJson) {
-  console.log("🛡️ [Step 3: 校验层 - Schema 强校验与断言拦截] 正在执行数据围栏验证...");
+  console.log("🛡️ [校验层 - Schema 强校验与断言拦截] 正在执行数据围栏验证...");
   const errors = [];
 
   // 1. 校验日期格式 (YYYY-MM-DD)
@@ -188,6 +342,11 @@ async function validateReportData(reportJson) {
     errors.push("宏观大局核心论点为空或篇幅过短");
   }
 
+  // 4. 校验 11 大行业板块覆盖
+  if (!Array.isArray(reportJson.sectors) || reportJson.sectors.length < 11) {
+    errors.push(`行业板块数量不足 11 个（实际 ${reportJson.sectors?.length || 0} 个）`);
+  }
+
   if (errors.length > 0) {
     console.error("❌ 数据质量校验未通过，拦截构建：\n", errors.join("\n"));
     const runUrl = process.env.GITHUB_REPOSITORY && process.env.GITHUB_RUN_ID
@@ -197,9 +356,9 @@ async function validateReportData(reportJson) {
       `【日报生成失败】${reportJson.date} 数据校验未通过`,
       `日报生成流水线在数据校验环节失败，未生成新报告。\n\n- 目标交易日：${reportJson.date}\n- 失败原因：\n${errors.map((e) => `  - ${e}`).join("\n")}\n- Workflow run：${runUrl}`
     );
-    process.exit(1); // 退出并报错，阻止无效 commit 和网页错误更新
+    process.exit(1);
   }
-  
+
   console.log("✅ 数据准确性与完整性校验 100% 通过！");
 }
 
@@ -208,6 +367,7 @@ const reportSchema = {
   properties: {
     date: { type: Type.STRING },
     marketStatus: { type: Type.STRING },
+    isFallback: { type: Type.BOOLEAN },
     macroSummary: {
       type: Type.OBJECT,
       properties: {
@@ -321,12 +481,11 @@ const reportSchema = {
       }
     }
   },
-  required: ["date", "marketStatus", "macroSummary", "aiReport", "sectors", "movers", "causalChains"]
+  required: ["date", "marketStatus", "isFallback", "macroSummary", "aiReport", "sectors", "movers", "causalChains"]
 };
 
-// 检查是否为周末或美股法定休市日
+// 严谨美股节假日计算（含复活节耶稣受难日及周末调休）
 function isUSMarketHolidayOrWeekend(now = new Date()) {
-  // 获取美东时间的年月日与星期
   const nyDateStr = new Intl.DateTimeFormat("en-US", {
     timeZone: "America/New_York",
     year: "numeric",
@@ -344,54 +503,110 @@ function isUSMarketHolidayOrWeekend(now = new Date()) {
   const todayStr = nyFormatter.format(now); // YYYY-MM-DD
   const [year, month, day] = todayStr.split("-").map(Number);
 
-  // 1. 周末判断 (Saturday / Sunday)
-  const isWeekend = nyDateStr.startsWith("Sat") || nyDateStr.startsWith("Sun");
-  if (isWeekend) {
+  // 1. 周末判断
+  if (nyDateStr.startsWith("Sat") || nyDateStr.startsWith("Sun")) {
     return { isHoliday: true, reason: `周末休市 (${nyDateStr.slice(0, 3)})` };
   }
 
-  // 2. 常见美股固定与浮动节假日判断 (NYSE / Nasdaq 假日表)
-  const monthDay = `${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-
-  // 元旦 (Jan 1)
-  if (monthDay === "01-01") return { isHoliday: true, reason: "元旦 (New Year's Day)" };
-  // 六月节 (Jun 19)
-  if (monthDay === "06-19") return { isHoliday: true, reason: "六月节独立日 (Juneteenth)" };
-  // 独立日 (Jul 4)
-  if (monthDay === "07-04") return { isHoliday: true, reason: "独立日 (Independence Day)" };
-  // 圣诞节 (Dec 25)
-  if (monthDay === "12-25") return { isHoliday: true, reason: "圣诞节 (Christmas Day)" };
-
-  // 劳动节 (Labor Day): 9月的第1个周一
-  if (month === 9 && nyDateStr.startsWith("Mon") && day <= 7) {
-    return { isHoliday: true, reason: "美国劳动节 (Labor Day)" };
+  // 2. 复活节耶稣受难日 (Good Friday) 精确计算
+  function getGoodFriday(y) {
+    const f = Math.floor;
+    const G = y % 19;
+    const C = f(y / 100);
+    const H = (C - f(C / 4) - f((8 * C + 13) / 25) + 19 * G + 15) % 30;
+    const I = H - f(H / 28) * (1 - f(29 / (H + 1)) * f((21 - G) / 11));
+    const J = (y + f(y / 4) + I + 2 - C + f(C / 4)) % 7;
+    const L = I - J;
+    const m = 3 + f((L + 40) / 44);
+    const d = L + 28 - 31 * f(m / 4);
+    const easter = new Date(Date.UTC(y, m - 1, d));
+    const gf = new Date(easter.getTime() - 2 * 86400000);
+    return gf.toISOString().slice(0, 10);
   }
-  // 感恩节 (Thanksgiving): 11月的第4个周四
-  if (month === 11 && nyDateStr.startsWith("Thu") && day >= 22 && day <= 28) {
-    return { isHoliday: true, reason: "美国感恩节 (Thanksgiving Day)" };
+
+  if (todayStr === getGoodFriday(year)) {
+    return { isHoliday: true, reason: "耶稣受难日 (Good Friday)" };
   }
+
+  // 3. 浮动节假日
   // 马丁路德金日: 1月的第3个周一
   if (month === 1 && nyDateStr.startsWith("Mon") && day >= 15 && day <= 21) {
     return { isHoliday: true, reason: "马丁·路德·金纪念日 (MLK Day)" };
   }
   // 总统日: 2月的第3个周一
   if (month === 2 && nyDateStr.startsWith("Mon") && day >= 15 && day <= 21) {
-    return { isHoliday: true, reason: "华盛顿诞辰/总统日 (Presidents' Day)" };
+    return { isHoliday: true, reason: "总统日 (Presidents' Day)" };
   }
   // 阵亡将士纪念日: 5月的最后1个周一
   if (month === 5 && nyDateStr.startsWith("Mon") && day >= 25) {
     return { isHoliday: true, reason: "阵亡将士纪念日 (Memorial Day)" };
   }
+  // 劳动节: 9月的第1个周一
+  if (month === 9 && nyDateStr.startsWith("Mon") && day <= 7) {
+    return { isHoliday: true, reason: "劳动节 (Labor Day)" };
+  }
+  // 感恩节: 11月的第4个周四
+  if (month === 11 && nyDateStr.startsWith("Thu") && day >= 22 && day <= 28) {
+    return { isHoliday: true, reason: "感恩节 (Thanksgiving Day)" };
+  }
+
+  // 4. 固定节假日（及周六前移周五、周日后移周一调休）
+  const fixedHolidays = [
+    { m: 1, d: 1, name: "元旦 (New Year's Day)" },
+    { m: 6, d: 19, name: "六月节独立日 (Juneteenth)" },
+    { m: 7, d: 4, name: "独立日 (Independence Day)" },
+    { m: 12, d: 25, name: "圣诞节 (Christmas Day)" }
+  ];
+
+  for (const h of fixedHolidays) {
+    const targetDate = new Date(Date.UTC(year, h.m - 1, h.d));
+    const dayOfWeek = targetDate.getUTCDay(); // 0 is Sun, 6 is Sat
+    let observedDateStr = "";
+    if (dayOfWeek === 6) {
+      observedDateStr = new Date(Date.UTC(year, h.m - 1, h.d - 1)).toISOString().slice(0, 10);
+    } else if (dayOfWeek === 0) {
+      observedDateStr = new Date(Date.UTC(year, h.m - 1, h.d + 1)).toISOString().slice(0, 10);
+    } else {
+      observedDateStr = targetDate.toISOString().slice(0, 10);
+    }
+    if (todayStr === observedDateStr) {
+      return { isHoliday: true, reason: h.name };
+    }
+  }
 
   return { isHoliday: false, reason: "" };
+}
+
+// 联网搜索当日新闻：两步式调用中的第一步（Step 1）
+async function fetchNewsGrounding(today) {
+  if (!ai) return "";
+  console.log(`🌐 [Step 1: 联网检索] 正在调用 Gemini Google Search 获取今日（${today}）突发财经要闻与异动催化剂...`);
+  try {
+    const searchPrompt = `请联网检索美股今日（${today}）的突发重大宏观经济数据、美联储官员表态、大宗商品波动以及 11 大行业核心龙头（NVDA, TSLA, MSFT, AAPL, AMZN, LLY, JPM, XOM 等）的关键公告与异动催化剂。
+请按要点输出 5 条核心突发新闻与催化剂摘要，保留权威事实。必须 100% 全中文输出。`;
+
+    const res = await ai.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: searchPrompt,
+      config: {
+        tools: [{ googleSearch: {} }]
+      }
+    });
+
+    const summary = res?.text || "";
+    console.log(`✅ 联网新闻检索成功（长度: ${summary.length} 字符）`);
+    return summary;
+  } catch (err) {
+    console.warn(`⚠️ 联网新闻检索跳过或异常 (${err.message})，将使用技术面与资金流动量化特征进行归因。`);
+    return "";
+  }
 }
 
 async function runAutomation() {
   const dateArg = process.argv.find((a) => a.startsWith("--date="))?.split("=")[1] || process.env.TARGET_DATE;
   const forceRun = process.env.FORCE_RUN === "true" || process.argv.includes("--force") || Boolean(dateArg);
 
-  // 美东 17 点守卫（双触发去重）：workflow 在 UTC 21:18 与 22:18 各触发一次，
-  // 只有美东时间 17 点那次才真正跑；手动 workflow_dispatch / 本地调试（--force）不受影响
+  // 美东 17 点守卫（双触发去重）
   if (process.env.GITHUB_EVENT_NAME === "schedule" && !forceRun) {
     const nyHour = Number(new Intl.DateTimeFormat("en-US", {
       timeZone: "America/New_York",
@@ -405,9 +620,8 @@ async function runAutomation() {
   }
 
   const holidayCheck = isUSMarketHolidayOrWeekend(new Date());
-
   if (holidayCheck.isHoliday && !forceRun) {
-    console.log(`[Skip] Today is weekend / US market holiday (${holidayCheck.reason}), skipping daily report generation.`);
+    console.log(`[Skip] 今日休市 (${holidayCheck.reason})，跳过日报生成。`);
     process.exit(0);
   }
 
@@ -418,10 +632,35 @@ async function runAutomation() {
     day: "2-digit"
   }).format(new Date());
 
-  console.log(`[${new Date().toISOString()}] 启动自动化流水线，目标交易日: ${today}...`);
+  console.log(`[${new Date().toISOString()}] 启动 Phase 2 自动化流水线，目标交易日: ${today}...`);
 
-  // Step 1: 代码层确定性抓取权威收盘价格
-  const { macro, extra } = await fetchDeterministicMarketData();
+  // 整理全量需要抓取的标的
+  const allTickersToFetch = new Set([
+    ...Object.values(MACRO_SYMBOLS),
+    ...Object.values(COMMODITY_SYMBOLS),
+    ...Object.values(EXTRA_WATCH_SYMBOLS)
+  ]);
+
+  SECTORS_CONFIG.forEach(sec => {
+    allTickersToFetch.add(sec.etf);
+    sec.leaders.forEach(l => allTickersToFetch.add(l));
+  });
+
+  const tickerList = Array.from(allTickersToFetch);
+  console.log(`📊 [Step 1: 确定性行情抓取] 正在并发抓取 ${tickerList.length} 只标的真实日线历史与均线系统...`);
+  const marketMap = await fetchBatchTickerData(tickerList, 8);
+
+  // 提取宏观资产
+  const macro = {
+    SPX: marketMap["^GSPC"] || marketMap["SPX"],
+    IXIC: marketMap["^IXIC"] || marketMap["IXIC"],
+    USO: marketMap["USO"],
+    GC: marketMap["GC=F"],
+    TNX: marketMap["^TNX"] || marketMap["TNX"],
+    DXY: marketMap["DX-Y.NYB"] || marketMap["DXY"]
+  };
+
+  const wti = marketMap["CL=F"];
 
   console.log(`✅ 官方真实结算行情抓取完毕:
   - 标普500 (SPX): ${macro.SPX?.price} (${macro.SPX?.changePct})
@@ -431,7 +670,20 @@ async function runAutomation() {
   - 10年期美债 (^TNX): ${macro.TNX?.price}% (${macro.TNX?.changePct})
   - 美元指数 (DXY): ${macro.DXY?.price} (${macro.DXY?.changePct})`);
 
-  // Step 2: Prompt 注入与系统指令强约束
+  // Step 1: 联网检索新闻与突发催化剂
+  const newsGroundingSummary = await fetchNewsGrounding(today);
+
+  // 组装 Ground Truth 文本
+  let sectorLines = [];
+  SECTORS_CONFIG.forEach(sec => {
+    const etfData = marketMap[sec.etf];
+    const leadersInfo = sec.leaders.map(l => {
+      const d = marketMap[l];
+      return `${l} (${d?.changePct || "+0.00%"}, RVOL ${d?.rvol || 1.0}x)`;
+    }).join(", ");
+    sectorLines.push(`- ${sec.name} (${sec.etf} ${etfData?.changePct || "+0.00%"}): ${leadersInfo}`);
+  });
+
   const groundTruthText = `
 【以下为官方交易所结算确定的真实数据 (Ground Truth)】
 你必须原封不动使用这些数值，严禁自行修改、计算或捏造任何收盘价格；你的核心任务是根据真实数据进行宏观归因、跨资产因果推演与异动点评。
@@ -439,110 +691,112 @@ async function runAutomation() {
 【宏观核心资产官方结算价与真实涨跌】：
 1. 标普 500 (SPX): 价格 ${macro.SPX?.price}, 涨跌幅 "${macro.SPX?.changePct}", 趋势: ${macro.SPX?.trend}
 2. 纳斯达克 (IXIC): 价格 ${macro.IXIC?.price}, 涨跌幅 "${macro.IXIC?.changePct}", 趋势: ${macro.IXIC?.trend}
-3. 美国原油基金 ETF (USO): 价格 ${macro.USO?.price}, 涨跌幅 "${macro.USO?.changePct}", 趋势: ${macro.USO?.trend} (参考WTI原油主力期货结算: $${extra.WTI?.price || 0}/桶)
+3. 美国原油基金 ETF (USO): 价格 ${macro.USO?.price}, 涨跌幅 "${macro.USO?.changePct}", 趋势: ${macro.USO?.trend} (WTI主力结算参考: $${wti?.price || 0}/桶)
 4. COMEX 黄金主力期货 (GC=F): 价格 ${macro.GC?.price}, 涨跌幅 "${macro.GC?.changePct}", 趋势: ${macro.GC?.trend}
 5. 10年期美债收益率 (^TNX): 价格 ${macro.TNX?.price}, 涨跌幅 "${macro.TNX?.changePct}", 趋势: ${macro.TNX?.trend}
 6. 美元指数 (DXY): 价格 ${macro.DXY?.price}, 涨跌幅 "${macro.DXY?.changePct}", 趋势: ${macro.DXY?.trend}
 
-【核心龙头股真实收盘涨跌幅与量比事实】：
-- 科技成长 (XLK): NVDA (${extra.NVDA?.changePct || "+0.00%"}, RVOL ${extra.NVDA?.rvol || 1.0}x), MSFT (${extra.MSFT?.changePct || "+0.00%"}), AAPL (${extra.AAPL?.changePct || "+0.00%"})
-- 医疗健康 (XLV): LLY (${extra.LLY?.changePct || "+0.00%"}), UNH (${extra.UNH?.changePct || "+0.00%"})
-- 可选消费 (XLY): AMZN (${extra.AMZN?.changePct || "+0.00%"}), TSLA (${extra.TSLA?.changePct || "+0.00%"}, RVOL ${extra.TSLA?.rvol || 1.0}x)
-- 能源与金融 (XLE): XOM (${extra.XOM?.changePct || "+0.00%"}, RVOL ${extra.XOM?.rvol || 1.0}x), JPM (${extra.JPM?.changePct || "+0.00%"})
-- 异动关注: PLTR (${extra.PLTR?.changePct || "+0.00%"}, RVOL ${extra.PLTR?.rvol || 1.0}x), AMD (${extra.AMD?.changePct || "+0.00%"})
+【11 大标普核心行业与板块龙头真实表现】：
+${sectorLines.join("\n")}
 `;
 
-  const prompt = `请基于以下官方交易所结算确定的真实数据，结合 Google Search 检索今日（${today}）的突发新闻、催化剂、企业财报与宏观政策，生成专业深度的每日市场复盘研报。
+  // Step 2: 组装结构化生成 Prompt
+  const prompt = `请基于以下官方交易所结算确定的真实数据，结合联网检索的突发要闻，生成专业深度的每日市场复盘研报。
 
 ${groundTruthText}
 
-==================== 【核心板块与领头羊覆盖】 ====================
-请严格使用上方给出的真实涨跌幅，并使用联网搜索补充各板块龙头今日涨跌的具体催化剂（catalyst）：
-- 科技成长 (XLK): NVDA, MSFT, AAPL
-- 医疗健康 (XLV): LLY, UNH
-- 可选/必选消费 (XLY): AMZN, TSLA
-- 能源与金融 (XLE): XOM, JPM
+${newsGroundingSummary ? `【联网检索的突发要闻与市场背景】：\n${newsGroundingSummary}\n` : ""}
+
+==================== 【核心板块覆盖要求】 ====================
+研报必须包含全部 11 大行业板块（科技成长、医疗健康、可选消费、必选消费、金融银行、工业制造、基础材料、公用事业、房地产、通讯服务、能源）。每个板块必须包含其 ETF 代码与龙头个股，并结合今日真实表现给出具体催化剂（catalyst）。
 
 ==================== 【异动股归因 (movers)】 ====================
-选取异动明显的个股（如 NVDA, TSLA, XOM, PLTR 等），结合新闻和成交量比 RVOL 给出专业归因。
-
-==================== 【核心总结与字数硬性约束 (200-300字)】 ====================
-请在 aiReport.dailyExecutiveSummary 中提供一段字数在 200~300 字的今日大局精炼总结：
-- 涵盖内容：宏观利率/原油大宗/美元指数与底层传导机制、核心财报超预期点、资金主线轮动方向。
-- 语言风格：专业华尔街策略师口吻，穿透底层逻辑，信息高密度，严谨客观。
+精选 3-5 只异动明显或具有高代表性的龙头个股（如 NVDA, TSLA, PLTR, XOM 等），结合成交量比 RVOL 与新闻给出深度归因与失效点位。
 
 ==================== 【全中文输出铁律 (CRITICAL)】 ====================
 除标准美股代码（如 NVDA, TSLA, SPX, GC=F）保留英文大写外，所有字段内容、标题、文字分析、归因解读、催化剂、失效点位、大局总结、因果链描述等必须 100% 全部使用专业、地道的简体中文撰写，严禁出现任何英文句子或英文分析段落！
-
-==================== 【格式要求】 ====================
-1. 【价格与涨跌幅铁律】：必须 100% 采用上方提供的权威真实点位与涨跌幅字符串，绝对不能填 null。
-2. 【无新闻标记】：若个股异动仅为技术面反弹或资金轮动，在 newsAttribution/catalyst 中明确填写：“【纯技术面/资金轮动，无突发公告】”。
-3. 【纯文本 JSON】：严禁在字符串内部插入任何 Markdown 链接、URL 或角标引用（如 [[1](...)]）。`;
-
-  console.log(`📡 正在调用 Gemini 模型生成智能宏观归因与跨资产推演...`);
-  const candidateModels = ["gemini-3.1-flash-lite", "gemini-flash-latest", "gemini-3.8-flash", "gemini-3.7-flash"];
-  let responseText = "";
-
-  for (const modelName of candidateModels) {
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        console.log(`🤖 尝试使用模型: ${modelName} (尝试 ${attempt}/2)...`);
-        const res = await ai.models.generateContent({
-          model: modelName,
-          contents: prompt,
-          config: {
-            systemInstruction: `你是一名兼具顶级宏观策略视野与量化视角的华尔街股票策略分析师。
-【全中文输出绝对铁律】：除美股代码（如 NVDA, SPX）和 ETF 代码保留英文大写外，研报内所有的字段文字、标题、总结、归因分析、催化剂、风险点、因果链描述等必须 100% 全部使用地道专业的简体中文输出！严禁输出任何英文分析段落！
-以下为官方交易所结算确定的真实数据。你必须原封不动使用这些数值，严禁自行修改、计算或捏造任何收盘价格；你的核心任务是根据真实数据进行宏观归因、跨资产因果推演与异动点评。
-行情数据已由权威数据接口提供，你必须忠实使用，绝不可编造或留空。你的重点是解读各标的重大新闻、业绩发布、地缘事件与宏观归因。`,
-            responseMimeType: "application/json",
-            responseSchema: reportSchema
-          }
-        });
-        if (res && res.text) {
-          responseText = res.text;
-          console.log(`✅ 模型 ${modelName} 生成成功！`);
-          break;
-        }
-      } catch (err) {
-        console.warn(`⚠️ 模型 ${modelName} (第 ${attempt} 次) 调用异常: ${err.message}`);
-        const delayMatch = err.message.match(/retry in ([0-9.]+)s/);
-        const waitSec = delayMatch ? Math.ceil(parseFloat(delayMatch[1])) + 2 : 8;
-        if (attempt < 2) {
-          console.log(`⏳ 等待 ${waitSec} 秒后重试...`);
-          await new Promise((r) => setTimeout(r, waitSec * 1000));
-        }
-      }
-    }
-    if (responseText) break;
-  }
+`;
 
   let reportJson = null;
-  if (responseText) {
-    try {
-      reportJson = JSON.parse(responseText);
-    } catch (parseErr) {
-      console.warn("⚠️ 解析 Gemini 响应 JSON 失败，启用确定性投研量化引擎合成兜底...");
+
+  if (ai) {
+    console.log(`📡 [Step 2: 结构化研报生成] 正在调用 Gemini 模型生成专业宏观研报...`);
+    const candidateModels = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"];
+    let responseText = "";
+
+    for (const modelName of candidateModels) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          console.log(`🤖 尝试使用模型: ${modelName} (尝试 ${attempt}/2)...`);
+          const res = await ai.models.generateContent({
+            model: modelName,
+            contents: prompt,
+            config: {
+              systemInstruction: `你是一名顶级华尔街宏观策略与量化股票分析师。
+【全中文输出绝对铁律】：除美股代码（如 NVDA, SPX）保留英文大写外，研报内所有的字段文字、标题、总结、归因分析、催化剂、风险点、因果链描述等必须 100% 全部使用地道专业的简体中文输出！
+数据由官方交易所结算提供，必须忠实使用数值，严禁捏造。聚焦深度宏观推演与资金轮动归因。
+isFallback 必须填为 false。`,
+              responseMimeType: "application/json",
+              responseSchema: reportSchema
+            }
+          });
+          if (res && res.text) {
+            responseText = res.text;
+            console.log(`✅ 模型 ${modelName} 结构化生成成功！`);
+            break;
+          }
+        } catch (err) {
+          console.warn(`⚠️ 模型 ${modelName} (第 ${attempt} 次) 调用异常: ${err.message}`);
+          if (attempt < 2) {
+            await new Promise((r) => setTimeout(r, 4000));
+          }
+        }
+      }
+      if (responseText) break;
+    }
+
+    if (responseText) {
+      try {
+        reportJson = JSON.parse(responseText);
+        reportJson.isFallback = false;
+      } catch (parseErr) {
+        console.warn("⚠️ 解析 Gemini 响应 JSON 失败，启用确定性投研量化引擎合成兜底...");
+      }
     }
   }
 
   if (!reportJson) {
-    console.log("⚙️ [高可用兜底] 启用确定性量化投研引擎，基于官方交易所权威结算数据自动合成完整研报...");
+    console.log("⚙️ [高可用兜底] 启用确定性量化投研引擎合成完整 11 板块研报...");
     const isTechBull = (macro.IXIC?.changePct || "").startsWith("+");
-    const isSpxBull = (macro.SPX?.changePct || "").startsWith("+");
     const tnxUp = (macro.TNX?.changePct || "").startsWith("+");
+
+    const fallbackSectors = SECTORS_CONFIG.map(sec => {
+      return {
+        name: sec.name,
+        etf: sec.etf,
+        leaders: sec.leaders.map(l => {
+          const item = marketMap[l];
+          return {
+            ticker: l,
+            changePct: item?.changePct || "+0.00%",
+            catalyst: `${sec.name}板块资金按行业基本面进行日常轮动配置，微观量价贴合技术均线整固。`
+          };
+        })
+      };
+    });
 
     reportJson = {
       date: today,
       marketStatus: `美股已收盘 (${today})`,
+      isFallback: true,
       macroSummary: {
         coreThesis: `今日美股大盘呈现${isTechBull ? "科技领涨、风险偏好回暖" : "高位震荡整理、防御资产走强"}格局。标普500收于 ${macro.SPX?.price} (${macro.SPX?.changePct})，纳斯达克综合指数录得 ${macro.IXIC?.price} (${macro.IXIC?.changePct})。10年期美债收益率收报 ${macro.TNX?.price}% (${macro.TNX?.changePct})，美元指数报 ${macro.DXY?.price} (${macro.DXY?.changePct})。市场资金在宏观流动性与成长估值之间展开高频再平衡。`,
-        transmissionDetail: `宏观流动性中枢受${tnxUp ? "长端美债收益率高位韧性" : "无风险折现率温和回落"}驱动，企业资本开支(CAPEX)向半导体算力与头部SaaS集中。同时大宗商品端原油基金报 $${macro.USO?.price} (${macro.USO?.changePct})，进一步重塑全市场抗通胀资产与周期制造的风险折价。`,
+        transmissionDetail: `宏观流动性中枢受${tnxUp ? "长端美债收益率高位韧性" : "无风险折现率温和回落"}驱动，全市场 11 大行业板块呈现结构性轮动。同时原油基金报 $${macro.USO?.price} (${macro.USO?.changePct})，重塑抗通胀资产与顺周期制造的风险折价。`,
         assets: []
       },
       aiReport: {
-        dailyExecutiveSummary: `【${today} 华尔街宏观策略收盘复盘】今日美股大盘${isTechBull ? "纳指领涨，成长风格占优" : "呈现震荡防御分化"}。标普500收报 ${macro.SPX?.price} (${macro.SPX?.changePct})，纳指收报 ${macro.IXIC?.price} (${macro.IXIC?.changePct})。10年期美债收益率运行于 ${macro.TNX?.price}% 水位。微观层面，AI算力链龙头（NVDA、MSFT）成交活跃度持续处于全市场前列，传统能源与金融板块分化运行，机构资金呈现典型的高现金流壁垒配置导向。`,
-        executiveSnapshot: `大盘多空博弈焦灼，纳指强势收报 ${macro.IXIC?.price}，宏观折现率波动受控，科技核心标的构筑扎实估值底座。`,
+        dailyExecutiveSummary: `【${today} 华尔街宏观策略收盘复盘】今日美股大盘${isTechBull ? "纳指领涨，成长风格占优" : "呈现震荡防御分化"}。标普500收报 ${macro.SPX?.price} (${macro.SPX?.changePct})，纳指收报 ${macro.IXIC?.price} (${macro.IXIC?.changePct})。10年期美债收益率运行于 ${macro.TNX?.price}% 水位。微观层面，AI算力链龙头（NVDA、MSFT）成交活跃度持续处于全市场前列，11 大行业板块轮动分化运行，机构资金呈现典型的高现金流壁垒配置导向。`,
+        executiveSnapshot: `大盘多空博弈焦灼，纳指收报 ${macro.IXIC?.price}，宏观折现率波动受控，各板块核心标的构筑扎实估值底座。`,
         heavyweightInsights: [
           {
             title: "宏观利率曲线与科技成长股估值韧性",
@@ -554,8 +808,8 @@ ${groundTruthText}
           }
         ],
         sectorRotations: {
-          growth: "科技与半导体产业链（XLK）活跃，核心硬件标的获得机构买盘持续护盘；",
-          defensive: "医药医疗（XLV）与必选消费提供防御对冲，高股息资产在利率震荡期保持韧性；",
+          growth: "信息技术与半导体（XLK）活跃，核心硬件标的获得机构买盘持续护盘；",
+          defensive: "医疗健康（XLV）与必选消费提供防御对冲，高股息资产在利率震荡期保持韧性；",
           capitalFlow: "增量资金聚焦于具备强现金流壁垒的龙头企业，避险与进攻资金并存，呈现哑铃型配置风格。"
         },
         tacticalOutlook: {
@@ -563,74 +817,40 @@ ${groundTruthText}
           bearIdeas: "回避缺乏实际盈利支撑的高估值投机股与高负债率传统制造标的，注意尾部风险防守。"
         }
       },
-      sectors: [
-        {
-          name: "科技成长",
-          etf: "XLK",
-          leaders: [
-            { ticker: "NVDA", changePct: extra.NVDA?.changePct || "+0.00%", catalyst: "AI数据中心需求与算力基础设施建设景气度持续高位支撑买盘。" },
-            { ticker: "MSFT", changePct: extra.MSFT?.changePct || "+0.00%", catalyst: "云业务Copilot与企业端软件订阅营收保持稳健增长预期。" },
-            { ticker: "AAPL", changePct: extra.AAPL?.changePct || "+0.00%", catalyst: "生态端新硬件出货与服务收入预期平稳，防御性配置资金沉淀。" }
-          ]
-        },
-        {
-          name: "医疗健康",
-          etf: "XLV",
-          leaders: [
-            { ticker: "LLY", changePct: extra.LLY?.changePct || "+0.00%", catalyst: "减重药管线放量与全球商业化扩张构筑长期防守价值。" },
-            { ticker: "UNH", changePct: extra.UNH?.changePct || "+0.00%", catalyst: "医疗服务赔付率预期消化，股价围绕关键均线窄幅拉锯。" }
-          ]
-        },
-        {
-          name: "可选/必选消费",
-          etf: "XLY",
-          leaders: [
-            { ticker: "AMZN", changePct: extra.AMZN?.changePct || "+0.00%", catalyst: "AWS云增长提速与北美电商履约效率改善驱动基本面改善。" },
-            { ticker: "TSLA", changePct: extra.TSLA?.changePct || "+0.00%", catalyst: "FSD与智能驾驶新商业模式预期博弈，高弹性资金高频换手。" }
-          ]
-        },
-        {
-          name: "能源与金融",
-          etf: "XLE",
-          leaders: [
-            { ticker: "XOM", changePct: extra.XOM?.changePct || "+0.00%", catalyst: "原油大宗商品价格波动与上游资本开支纪律形成估值锚定。" },
-            { ticker: "JPM", changePct: extra.JPM?.changePct || "+0.00%", catalyst: "净利息收入在高利率环境下保持稳固，资产负债表健康。" }
-          ]
-        }
-      ],
+      sectors: fallbackSectors,
       movers: [
         {
           ticker: "NVDA",
           name: "英伟达",
-          changePct: extra.NVDA?.changePct || "+1.34%",
-          rvol: extra.NVDA?.rvol ? `${extra.NVDA.rvol}x` : "1.10x",
-          sector: "科技成长",
+          changePct: marketMap["NVDA"]?.changePct || "+1.34%",
+          rvol: marketMap["NVDA"]?.rvol ? `${marketMap["NVDA"].rvol}x` : "1.10x",
+          sector: "信息技术与半导体",
           newsAttribution: "半导体行业资金承接意愿强劲，算力芯片全球需求旺盛，机构筹码高度锁定。",
           shortTermOutlook: "高位均线多头排列，若成交量保持健康，短线维持强势整理格局。",
           midTermLogic: "数据中心算力建设景气周期跨越度长，行业龙头定价权与自由现金流构筑深厚护城河。",
-          invalidationLevel: `关键防守位 $${((extra.NVDA?.price || 230) * 0.95).toFixed(2)}`
+          invalidationLevel: `关键防守位 $${((marketMap["NVDA"]?.price || 230) * 0.95).toFixed(2)}`
         },
         {
           ticker: "TSLA",
           name: "特斯拉",
-          changePct: extra.TSLA?.changePct || "+0.42%",
-          rvol: extra.TSLA?.rvol ? `${extra.TSLA.rvol}x` : "0.95x",
-          sector: "可选消费",
+          changePct: marketMap["TSLA"]?.changePct || "+0.42%",
+          rvol: marketMap["TSLA"]?.rvol ? `${marketMap["TSLA"].rvol}x` : "0.95x",
+          sector: "可选消费与电商",
           newsAttribution: "市场对AI算力集群与无人出租车商业化落地预期持续发酵，多空博弈激烈。",
           shortTermOutlook: "区间箱体震荡，等待放量突破关键阻力位。",
           midTermLogic: "汽车基本盘叠加AI端智能生态商业化，赋予其超越传统车企的高弹性估值倍数。",
-          invalidationLevel: `关键防守位 $${((extra.TSLA?.price || 250) * 0.94).toFixed(2)}`
+          invalidationLevel: `关键防守位 $${((marketMap["TSLA"]?.price || 250) * 0.94).toFixed(2)}`
         },
         {
           ticker: "XOM",
           name: "埃克森美孚",
-          changePct: extra.XOM?.changePct || "-1.20%",
-          rvol: extra.XOM?.rvol ? `${extra.XOM.rvol}x` : "0.88x",
-          sector: "能源与金融",
+          changePct: marketMap["XOM"]?.changePct || "-1.20%",
+          rvol: marketMap["XOM"]?.rvol ? `${marketMap["XOM"].rvol}x` : "0.88x",
+          sector: "能源与石油天然气",
           newsAttribution: "WTI原油大宗主力合约回调，压制上游采掘板块情绪，短线多头获利回吐。",
           shortTermOutlook: "短线下探测试支撑，需等待油价企稳信号出现。",
           midTermLogic: "低成本开采资产与持续股票回购计划为中长线价值投资者提供扎实安全垫。",
-          invalidationLevel: `关键防守位 $${((extra.XOM?.price || 115) * 0.96).toFixed(2)}`
+          invalidationLevel: `关键防守位 $${((marketMap["XOM"]?.price || 115) * 0.96).toFixed(2)}`
         }
       ],
       causalChains: [
@@ -650,7 +870,7 @@ ${groundTruthText}
     };
   }
 
-  // Step 3（落地执行：在 Node.js 中自动拼装合成真实数字，确保数值端 100% 具备数据源背书）
+  // 拼装宏观资产官方确定性数据
   const deterministicAssets = [
     macro.SPX && { name: "标普500", ticker: "SPX", price: macro.SPX.price, changePct: macro.SPX.changePct, trend: macro.SPX.trend },
     macro.IXIC && { name: "纳斯达克", ticker: "IXIC", price: macro.IXIC.price, changePct: macro.IXIC.changePct, trend: macro.IXIC.trend },
@@ -660,43 +880,56 @@ ${groundTruthText}
     macro.DXY && { name: "美元指数", ticker: "DXY", price: macro.DXY.price, changePct: macro.DXY.changePct, trend: macro.DXY.trend }
   ].filter(Boolean);
 
-  if (!reportJson.macroSummary) {
-    reportJson.macroSummary = {};
-  }
+  if (!reportJson.macroSummary) reportJson.macroSummary = {};
   reportJson.macroSummary.assets = deterministicAssets;
   reportJson.assets = deterministicAssets;
   reportJson.date = today;
 
-  // 校验并矫正 sectors 中的龙头实际涨跌幅
+  // 补齐与矫正 11 大行业板块实际涨跌幅
   if (Array.isArray(reportJson.sectors)) {
     for (const sec of reportJson.sectors) {
       if (Array.isArray(sec.leaders)) {
         for (const leader of sec.leaders) {
-          const item = extra[leader.ticker];
+          const item = marketMap[leader.ticker];
           if (item && item.changePct) {
             leader.changePct = item.changePct;
+            leader.price = item.price;
+            leader.technicals = item.technicals;
           }
         }
       }
     }
   }
 
-  // 校验并矫正 movers 中的个股实际涨跌幅与量比
+  // 矫正 movers 中的个股涨跌幅与量比，并注入真实均线
   if (Array.isArray(reportJson.movers)) {
     for (const mover of reportJson.movers) {
-      const item = extra[mover.ticker];
+      const item = marketMap[mover.ticker];
       if (item && item.changePct) {
         mover.changePct = item.changePct;
-        if (item.rvol) {
-          mover.rvol = `${item.rvol}x`;
-        }
+        mover.price = item.price;
+        if (item.rvol) mover.rvol = `${item.rvol}x`;
+        mover.technicals = item.technicals;
       }
     }
   }
 
-  // 校验层 - Schema 强校验与断言拦截，拦截任何非法或空值数据
+  // 注入全市场真实技术指标字典，供前端雷达与抄底信号直接消费
+  const technicalIndicators = {};
+  Object.entries(marketMap).forEach(([t, data]) => {
+    if (data?.technicals) {
+      technicalIndicators[t] = {
+        price: data.price,
+        ...data.technicals
+      };
+    }
+  });
+  reportJson.technicalIndicators = technicalIndicators;
+
+  // 强校验
   await validateReportData(reportJson);
 
+  // 归档存储
   const dataDir = path.resolve(projectRoot, "src/data/reports");
   if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
@@ -705,7 +938,7 @@ ${groundTruthText}
   fs.writeFileSync(path.join(dataDir, `${today}.json`), JSON.stringify(reportJson, null, 2));
   fs.writeFileSync(path.resolve(projectRoot, "src/data/latestReport.json"), JSON.stringify(reportJson, null, 2));
 
-  console.log(`✅ [${today}] 美股权威投研研报已成功生成并归档！所有价格与涨跌幅 100% 权威对齐并通过数据围栏校验！`);
+  console.log(`✅ [${today}] Phase 2 美股权威研报生成完毕！11 大板块、真实均线系统与 isFallback 标记均已入库！`);
 }
 
 runAutomation().catch((err) => {

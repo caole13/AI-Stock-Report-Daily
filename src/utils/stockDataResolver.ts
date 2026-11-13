@@ -41,6 +41,13 @@ export interface ResolvedStockInfo {
   resistance: string;
   intradayTrendDescription: string;
   driverSummary: string;
+  technicals?: {
+    ema21?: number | null;
+    ema55?: number | null;
+    ema144?: number | null;
+    ma50?: number | null;
+    ma200?: number | null;
+  };
 }
 
 /**
@@ -306,5 +313,11 @@ export function resolveUnifiedStockData(
     resistance,
     intradayTrendDescription,
     driverSummary: catalyst,
+    technicals:
+      currentDayData?.technicalIndicators?.[upperTicker] ||
+      moverItem?.technicals ||
+      foundLeader?.technicals ||
+      rawStock?.technicals ||
+      null,
   };
 }
