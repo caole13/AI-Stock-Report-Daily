@@ -202,9 +202,20 @@ function fetchTickerData(ticker, retryCount = 2) {
             const volumes = rawVolumes.filter(v => v !== null && !isNaN(v));
 
             const price = meta.regularMarketPrice ?? (closes.length > 0 ? closes[closes.length - 1] : 0);
-            const prevClose = meta.chartPreviousClose ?? meta.previousClose ?? (closes.length > 1 ? closes[closes.length - 2] : price);
-            const changePctNum = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+
+            // 涨跌幅计算修正：严禁使用 1y chart 范围下的 chartPreviousClose（那是 1 年前的价格！）
+            // 优先直接使用 Yahoo Finance 官方计算的 regularMarketChangePercent，其次取最后两根日线收盘价对比
+            let changePctNum = 0;
+            if (typeof meta.regularMarketChangePercent === "number" && !isNaN(meta.regularMarketChangePercent)) {
+              changePctNum = meta.regularMarketChangePercent;
+            } else if (closes.length >= 2) {
+              const lastClose = closes[closes.length - 1];
+              const prevClose = closes[closes.length - 2];
+              changePctNum = prevClose > 0 ? ((lastClose - prevClose) / prevClose) * 100 : 0;
+            }
+
             const changePct = (changePctNum > 0 ? "+" : "") + changePctNum.toFixed(2) + "%";
+            const prevClose = changePctNum !== 0 ? Number((price / (1 + changePctNum / 100)).toFixed(price < 10 ? 3 : 2)) : price;
 
             // RVOL 测算：当日成交量 / 过去 30 个交易日平均成交量
             const lastVol = meta.regularMarketVolume ?? (volumes.length > 0 ? volumes[volumes.length - 1] : 0);
