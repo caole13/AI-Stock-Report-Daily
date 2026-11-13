@@ -42,7 +42,7 @@ ${macro.transmissionDetail ? `\n**宏观底层传导机制**:\n${macro.transmiss
 ${(() => {
   const calEvents = getUpcomingMacroCalendar(selectedDate);
   if (calEvents.length === 0) {
-    return "_【待更新】选定报告日期未来 7 天内暂无预定重大宏观数据与财报发布，已自动过滤已过期事件。_";
+    return "_【待更新】所选日期窗口暂无已核实的日历数据，已自动过滤已过期事件。_";
   }
   return calEvents.map(
     (ev) =>

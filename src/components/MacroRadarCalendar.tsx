@@ -85,10 +85,10 @@ export const MacroRadarCalendar: React.FC<MacroRadarCalendarProps> = ({
             <div className="py-8 px-4 text-center rounded-sm bg-[#151515] border border-dashed border-slate-800 space-y-2">
               <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-950/40 text-amber-300 border border-amber-800/50 text-xs font-mono font-medium">
                 <Clock className="w-3.5 h-3.5" />
-                <span>【待更新】未来 7 天暂无重大宏观与财报事件</span>
+                <span>【待更新】所选日期窗口暂无已核实的日历数据</span>
               </div>
               <p className="text-xs text-slate-400 font-sans max-w-md mx-auto">
-                选定报告日期 ({selectedDate || "当前基准日"}) 未来 7 天窗口内暂无预定重大宏观数据发布或重点财报，已自动过滤已过期事件。
+                选定报告日期 ({selectedDate || "当前基准日"}) 对应窗口暂无已核实收录的日历事件，已自动过滤已过期事件。
               </p>
             </div>
           ) : (
