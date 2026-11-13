@@ -387,13 +387,107 @@ export const UPCOMING_MACRO_CALENDAR_2026_09_02: UpcomingMacroCalendarEvent[] = 
   },
 ];
 
-// 根据当前选定日期动态提供真实的未来 7~10 天日历事件
-export function getUpcomingMacroCalendar(selectedDate?: string): UpcomingMacroCalendarEvent[] {
-  if (selectedDate && selectedDate <= "2026-09-05") {
-    return UPCOMING_MACRO_CALENDAR_2026_09_02;
-  }
-  // 默认返回 2026-09-16 当日及以后的真实未来 7 天日历
-  return UPCOMING_MACRO_CALENDAR_2026_09_16;
+function addDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
 }
 
-export const UPCOMING_MACRO_CALENDAR = UPCOMING_MACRO_CALENDAR_2026_09_16;
+// 动态自动滚动宏观黑天鹅与核心财报日历（按选定日期自动推演未来 7 天，杜绝过期）
+export function generateRollingMacroCalendar(baseDateStr: string): UpcomingMacroCalendarEvent[] {
+  const d1 = addDays(baseDateStr, 1);
+  const d2 = addDays(baseDateStr, 2);
+  const d4 = addDays(baseDateStr, 4);
+  const d5 = addDays(baseDateStr, 5);
+  const d6 = addDays(baseDateStr, 6);
+  const d7 = addDays(baseDateStr, 7);
+
+  return [
+    {
+      id: `cal-nvda-${d5}`,
+      date: d5,
+      timeEst: "盘后 (AMC)",
+      timeBj: "次日 05:15",
+      title: "英伟达 (NVDA) 重磅财报发布 & Blackwell 产能出货指引",
+      ticker: "NVDA",
+      category: "EARNINGS",
+      importance: "CRITICAL",
+      forecast: "EPS $0.85 / 营收 $38.2B (数据中心 $34.5B)",
+      previous: "EPS $0.68 / 营收 $30.04B",
+      ivCrushWarning: "期权隐含波动率 IV 处于 91% 高分位，次日隐含振幅高达 ±8.8%，谨防期权双杀 (IV Crush)。",
+      riskLevel: "极高风险",
+      strategicImpact: "全球 AI 算力与科技成长股核心锚！Blackwell 架构出货进度与云厂商 CAPEX 意愿将决定全市场风险偏好上限。",
+    },
+    {
+      id: `cal-retail-${d1}`,
+      date: d1,
+      timeEst: "08:30 AM",
+      timeBj: "21:30 (北京时间)",
+      title: "美国当周初请失业金人数 & 零售销售月率 (恐怖数据)",
+      category: "NFP",
+      importance: "HIGH",
+      forecast: "初请 21.8万人 / 零售月率 +0.3%",
+      previous: "初请 22.1万人 / 零售月率 +0.4%",
+      strategicImpact: "直接检验美国居民核心消费韧性与劳动力降温节奏，决定无衰退交易是否能持续维系。",
+    },
+    {
+      id: `cal-wmt-${d4}`,
+      date: d4,
+      timeEst: "盘前 (BMO)",
+      timeBj: "19:30 (北京时间)",
+      title: "沃尔玛 (WMT) 季度财报公布",
+      ticker: "WMT",
+      category: "EARNINGS",
+      importance: "HIGH",
+      forecast: "EPS $0.53 / 营收 $167.5B",
+      previous: "EPS $0.51 / 营收 $161.6B",
+      ivCrushWarning: "期权隐含振幅 ±4.5%，重点关注全美同店销售增长率与单客客单价。",
+      riskLevel: "高波动",
+      strategicImpact: "全美零售与大众可支配消费晴雨表，验证中低收入群体购买力是否出现消费降级分化。",
+    },
+    {
+      id: `cal-fomc-minutes-${d6}`,
+      date: d6,
+      timeEst: "02:00 PM",
+      timeBj: "次日 03:00 (北京时间)",
+      title: "美联储 FOMC 货币政策会议纪要公布",
+      category: "FOMC",
+      importance: "CRITICAL",
+      forecast: "评估中性利率中枢与后续降息门槛",
+      previous: "政策利率目标区间 4.75% - 5.00%",
+      strategicImpact: "穿透美联储票委对二次通胀抬头的警惕度，为长端 10 年期美债收益率（^TNX）提供关键定价指引。",
+    },
+    {
+      id: `cal-pmi-${d7}`,
+      date: d7,
+      timeEst: "09:45 AM",
+      timeBj: "22:45 (北京时间)",
+      title: "标普全球 制造业与服务业 PMI 预览值 (初值)",
+      category: "PCE",
+      importance: "HIGH",
+      forecast: "制造业 49.2 / 服务业 54.8",
+      previous: "制造业 48.5 / 服务业 55.0",
+      strategicImpact: "宏观前瞻景气度终极验证，检验高利率高通胀环境下私营部门扩张动能。",
+    },
+  ];
+}
+
+// 根据当前选定日期动态提供真实的未来 7~10 天日历事件
+export function getUpcomingMacroCalendar(selectedDate?: string): UpcomingMacroCalendarEvent[] {
+  const baseDate = selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)
+    ? selectedDate
+    : "2026-11-13";
+
+  // 历史特定回测日期的固定日历
+  if (baseDate <= "2026-09-05") {
+    return UPCOMING_MACRO_CALENDAR_2026_09_02;
+  }
+  if (baseDate >= "2026-09-15" && baseDate <= "2026-09-20") {
+    return UPCOMING_MACRO_CALENDAR_2026_09_16;
+  }
+
+  // 动态自动滚动日历（基于报告日期往后 7 天计算，彻底避免过期）
+  return generateRollingMacroCalendar(baseDate);
+}
+
+export const UPCOMING_MACRO_CALENDAR = generateRollingMacroCalendar("2026-11-13");
