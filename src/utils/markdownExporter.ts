@@ -1,5 +1,5 @@
 import { HistoricalDailyData } from "../types";
-import { getPriceActionSignals, getBottomHuntSignals, UPCOMING_MACRO_CALENDAR } from "../data/radarSignals";
+import { getPriceActionSignals, getBottomHuntSignals, getUpcomingMacroCalendar } from "../data/radarSignals";
 
 export function generateMasterMarkdownReport(
   data: HistoricalDailyData,
@@ -39,13 +39,19 @@ ${macro.transmissionDetail ? `\n**宏观底层传导机制**:\n${macro.transmiss
 ---
 
 ## ⚡ 二、核心财报与宏观黑天鹅雷达 (未来 7 天关键日历)
-${UPCOMING_MACRO_CALENDAR.map(
-  (ev) =>
-    `- **${ev.date} (${ev.timeBj})** 【${ev.category}】**${ev.title}** ${ev.ticker ? `(\$${ev.ticker})` : ""}
+${(() => {
+  const calEvents = getUpcomingMacroCalendar(selectedDate);
+  if (calEvents.length === 0) {
+    return "_【待更新】选定报告日期未来 7 天内暂无预定重大宏观数据与财报发布，已自动过滤已过期事件。_";
+  }
+  return calEvents.map(
+    (ev) =>
+      `- **${ev.date} (${ev.timeBj})** 【${ev.category}】**${ev.title}** ${ev.ticker ? `(\$${ev.ticker})` : ""}
   - 预期/前值: ${ev.forecast || "--"} / ${ev.previous || "--"}
   - 策略影响: ${ev.strategicImpact}
   ${ev.ivCrushWarning ? `  - ⚠️ **期权预警**: ${ev.ivCrushWarning}` : ""}`
-).join("\n")}
+  ).join("\n");
+})()}
 
 ---
 

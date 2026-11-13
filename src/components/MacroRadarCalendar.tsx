@@ -81,98 +81,110 @@ export const MacroRadarCalendar: React.FC<MacroRadarCalendarProps> = ({
       {/* Calendar Event Cards */}
       {isOpen && (
         <div className="p-3.5 border-t border-slate-850 space-y-2.5">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {calendarEvents.map((event) => {
-              const isEarnings = event.category === "EARNINGS";
+          {calendarEvents.length === 0 ? (
+            <div className="py-8 px-4 text-center rounded-sm bg-[#151515] border border-dashed border-slate-800 space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded bg-amber-950/40 text-amber-300 border border-amber-800/50 text-xs font-mono font-medium">
+                <Clock className="w-3.5 h-3.5" />
+                <span>【待更新】未来 7 天暂无重大宏观与财报事件</span>
+              </div>
+              <p className="text-xs text-slate-400 font-sans max-w-md mx-auto">
+                选定报告日期 ({selectedDate || "当前基准日"}) 未来 7 天窗口内暂无预定重大宏观数据发布或重点财报，已自动过滤已过期事件。
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {calendarEvents.map((event) => {
+                const isEarnings = event.category === "EARNINGS";
 
-              return (
-                <div
-                  key={event.id}
-                  onClick={() => {
-                    if (event.ticker && onSelectStock) {
-                      onSelectStock(event.ticker);
-                    }
-                  }}
-                  className={`p-3 rounded-sm bg-[#151515] border border-slate-800/90 transition-all flex flex-col justify-between ${
-                    event.importance === "CRITICAL"
-                      ? "hover:border-rose-700/60 hover:shadow-md hover:shadow-rose-950/20"
-                      : "hover:border-[#d4af37]/60"
-                  } ${event.ticker ? "cursor-pointer" : ""}`}
-                >
-                  <div>
-                    {/* Top Date & Category */}
-                    <div className="flex items-center justify-between gap-1.5">
-                      <div className="flex items-center gap-1.5">
-                        <span
-                          className={`text-[10px] font-mono px-2 py-0.5 rounded-sm border font-semibold ${getCategoryBadge(
-                            event.category
-                          )}`}
-                        >
-                          {event.category}
-                        </span>
-                        <span className="text-xs font-mono font-bold text-[#d4af37]">
-                          {event.date}
+                return (
+                  <div
+                    key={event.id}
+                    onClick={() => {
+                      if (event.ticker && onSelectStock) {
+                        onSelectStock(event.ticker);
+                      }
+                    }}
+                    className={`p-3 rounded-sm bg-[#151515] border border-slate-800/90 transition-all flex flex-col justify-between ${
+                      event.importance === "CRITICAL"
+                        ? "hover:border-rose-700/60 hover:shadow-md hover:shadow-rose-950/20"
+                        : "hover:border-[#d4af37]/60"
+                    } ${event.ticker ? "cursor-pointer" : ""}`}
+                  >
+                    <div>
+                      {/* Top Date & Category */}
+                      <div className="flex items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className={`text-[10px] font-mono px-2 py-0.5 rounded-sm border font-semibold ${getCategoryBadge(
+                              event.category
+                            )}`}
+                          >
+                            {event.category}
+                          </span>
+                          <span className="text-xs font-mono font-bold text-[#d4af37]">
+                            {event.date}
+                          </span>
+                        </div>
+
+                        <span className="text-[10px] font-mono text-slate-400">
+                          {event.timeBj}
                         </span>
                       </div>
 
-                      <span className="text-[10px] font-mono text-slate-400">
-                        {event.timeBj}
-                      </span>
+                      {/* Title & Ticker */}
+                      <div className="mt-2 flex items-start justify-between gap-1">
+                        <h4 className="text-xs font-serif font-bold text-white line-clamp-1">
+                          {event.title}
+                        </h4>
+                        {event.ticker && (
+                          <a
+                            href={getYahooFinanceUrl(event.ticker)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="text-[10px] font-mono px-1 py-0.2 rounded bg-[#6001d2]/20 hover:bg-[#6001d2]/40 text-[#d8b4fe] hover:text-white border border-[#7b1fa2]/40 shrink-0 flex items-center gap-0.5"
+                            title="在 Yahoo 查看"
+                          >
+                            <span>{event.ticker}</span>
+                            <ExternalLink className="w-2.5 h-2.5" />
+                          </a>
+                        )}
+                      </div>
+
+                      {/* Forecast vs Previous */}
+                      {(event.forecast || event.previous) && (
+                        <div className="mt-2 text-[11px] font-mono p-1.5 rounded bg-[#0d0d0d] border border-slate-850/80 flex items-center justify-between text-slate-300">
+                          <span>预期: {event.forecast || "--"}</span>
+                          <span className="text-slate-500">前值: {event.previous || "--"}</span>
+                        </div>
+                      )}
+
+                      {/* IV Crush / Risk Warning */}
+                      {event.ivCrushWarning && (
+                        <div className="mt-2 p-1.5 rounded bg-rose-950/40 border border-rose-900/50 text-[11px] font-sans text-rose-300/90 flex items-start gap-1.5">
+                          <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
+                          <span className="line-clamp-2 leading-tight">{event.ivCrushWarning}</span>
+                        </div>
+                      )}
+
+                      {/* Strategic Impact */}
+                      <p className="text-[11px] text-slate-400 font-sans mt-2 line-clamp-2 leading-relaxed">
+                        {event.strategicImpact}
+                      </p>
                     </div>
 
-                    {/* Title & Ticker */}
-                    <div className="mt-2 flex items-start justify-between gap-1">
-                      <h4 className="text-xs font-serif font-bold text-white line-clamp-1">
-                        {event.title}
-                      </h4>
-                      {event.ticker && (
-                        <a
-                          href={getYahooFinanceUrl(event.ticker)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-[10px] font-mono px-1 py-0.2 rounded bg-[#6001d2]/20 hover:bg-[#6001d2]/40 text-[#d8b4fe] hover:text-white border border-[#7b1fa2]/40 shrink-0 flex items-center gap-0.5"
-                          title="在 Yahoo 查看"
-                        >
-                          <span>{event.ticker}</span>
-                          <ExternalLink className="w-2.5 h-2.5" />
-                        </a>
+                    {/* Footer */}
+                    <div className="mt-2.5 pt-2 border-t border-slate-850/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                      <span>影响权重: {event.importance === "CRITICAL" ? "🔴 极高" : "🟡 偏高"}</span>
+                      {event.riskLevel && (
+                        <span className="text-amber-400">风险: {event.riskLevel}</span>
                       )}
                     </div>
-
-                    {/* Forecast vs Previous */}
-                    {(event.forecast || event.previous) && (
-                      <div className="mt-2 text-[11px] font-mono p-1.5 rounded bg-[#0d0d0d] border border-slate-850/80 flex items-center justify-between text-slate-300">
-                        <span>预期: {event.forecast || "--"}</span>
-                        <span className="text-slate-500">前值: {event.previous || "--"}</span>
-                      </div>
-                    )}
-
-                    {/* IV Crush / Risk Warning */}
-                    {event.ivCrushWarning && (
-                      <div className="mt-2 p-1.5 rounded bg-rose-950/40 border border-rose-900/50 text-[11px] font-sans text-rose-300/90 flex items-start gap-1.5">
-                        <ShieldAlert className="w-3.5 h-3.5 text-rose-400 shrink-0 mt-0.5" />
-                        <span className="line-clamp-2 leading-tight">{event.ivCrushWarning}</span>
-                      </div>
-                    )}
-
-                    {/* Strategic Impact */}
-                    <p className="text-[11px] text-slate-400 font-sans mt-2 line-clamp-2 leading-relaxed">
-                      {event.strategicImpact}
-                    </p>
                   </div>
-
-                  {/* Footer */}
-                  <div className="mt-2.5 pt-2 border-t border-slate-850/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                    <span>影响权重: {event.importance === "CRITICAL" ? "🔴 极高" : "🟡 偏高"}</span>
-                    {event.riskLevel && (
-                      <span className="text-amber-400">风险: {event.riskLevel}</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
     </div>

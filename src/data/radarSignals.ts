@@ -469,22 +469,31 @@ export const UPCOMING_MACRO_CALENDAR_2026_11_13: UpcomingMacroCalendarEvent[] = 
   },
 ];
 
-// 根据当前选定日期动态提供真实的未来 7~10 天日历事件
+// 根据当前选定报告日期动态提供真实的未来 7 天日历事件，严格按 [selectedDate, selectedDate + 7d] 窗口筛选
 export function getUpcomingMacroCalendar(selectedDate?: string): UpcomingMacroCalendarEvent[] {
   const baseDate = selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate)
     ? selectedDate
     : "2026-11-13";
 
-  // 历史特定回测日期的固定日历
+  // 根据选定日期确定备选大事件池
+  let pool: UpcomingMacroCalendarEvent[];
   if (baseDate <= "2026-09-05") {
-    return UPCOMING_MACRO_CALENDAR_2026_09_02;
-  }
-  if (baseDate >= "2026-09-15" && baseDate <= "2026-09-20") {
-    return UPCOMING_MACRO_CALENDAR_2026_09_16;
+    pool = UPCOMING_MACRO_CALENDAR_2026_09_02;
+  } else if (baseDate >= "2026-09-15" && baseDate <= "2026-09-20") {
+    pool = UPCOMING_MACRO_CALENDAR_2026_09_16;
+  } else {
+    // 11月中旬及未来当前实际宏观大事件日历
+    pool = UPCOMING_MACRO_CALENDAR_2026_11_13;
   }
 
-  // 11月中旬及未来当前实际宏观大事件日历
-  return UPCOMING_MACRO_CALENDAR_2026_11_13;
+  // 计算未来 7 天截止日期（例如 baseDate 为 2026-11-13，endDate 则为 2026-11-20）
+  const parts = baseDate.split("-").map(Number);
+  const baseD = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  baseD.setUTCDate(baseD.getUTCDate() + 7);
+  const endDate = baseD.toISOString().slice(0, 10);
+
+  // 严格过滤：仅保留在 [baseDate, endDate] 窗口内的事件（排除过期事件与超过7天的远期事件）
+  return pool.filter((event) => event.date >= baseDate && event.date <= endDate);
 }
 
 export const UPCOMING_MACRO_CALENDAR = UPCOMING_MACRO_CALENDAR_2026_11_13;
