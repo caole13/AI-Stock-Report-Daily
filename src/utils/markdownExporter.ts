@@ -39,14 +39,18 @@ ${
 - 🔴 **空头剧本**: ${playbook.bearScenario}
 
 ### 🚀 重点行动候选标的 (Actionable Setups)
-| 代码 | 名称 | 信号形态 | 介入参考区间 | 止损保护 | 目标位 | 核心催化 |
+${
+  playbook.topCandidates && playbook.topCandidates.length > 0
+    ? `| 代码 | 名称 | 信号形态 | 介入参考区间 | 止损保护 | 目标位 | 核心催化 |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 ${playbook.topCandidates
   .map(
     (c) =>
       `| **${c.ticker}** | ${c.name} | \`${c.bias}\` ${c.setup} | ${c.entryZone} | \`${c.stopLoss}\` | **${c.target}** | ${c.catalyst || "--"} |`
   )
-  .join("\n")}
+  .join("\n")}`
+    : `_【风控提示】今日市场结构呈现分化，监测池中暂无满足严格均线多头共振且量价确认的候选标的，建议维持防守纪律、观望为主。_`
+}
 
 ---
 

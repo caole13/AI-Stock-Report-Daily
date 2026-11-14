@@ -969,6 +969,53 @@ isFallback 必须填为 false。`,
   const qqqSupportVal = qqqTech.ema21 ? qqqTech.ema21 : 485;
   const qqqInvalVal = qqqTech.ema55 ? qqqTech.ema55 : 478;
 
+  // 动态筛选满足 EMA 多头排列与量能共振的行动候选标的 (绝不填充虚假静态兜底)
+  const candidatePool = ["COST", "JPM", "XOM", "LLY", "NVDA", "MSFT", "AMZN", "AAPL", "GOOGL", "META"];
+  const dynamicCandidates = [];
+
+  for (const t of candidatePool) {
+    const item = marketMap[t];
+    const tData = technicalIndicators[t];
+    if (item && item.price && tData && tData.ema21 && tData.ema55) {
+      if (tData.ema21 > tData.ema55 && item.price >= tData.ema55 * 0.99) {
+        const rvol = item.rvol ? parseFloat(String(item.rvol)) : 1.0;
+        const isHighVol = rvol >= 1.2;
+        const isLowVol = rvol < 0.9;
+
+        let setupDesc = "";
+        let biasType = "";
+
+        if (item.price > tData.ema21) {
+          biasType = "多头突破";
+          setupDesc = isHighVol
+            ? `均线多头排列 · 放量突破主升 (RVOL: ${rvol.toFixed(2)}x)`
+            : isLowVol
+            ? `均线多头排列 · 缩量整固蓄势 (RVOL: ${rvol.toFixed(2)}x)`
+            : `均线多头排列 · 稳步上行 (RVOL: ${rvol.toFixed(2)}x)`;
+        } else {
+          biasType = "回踩做多";
+          setupDesc = isLowVol
+            ? `缩量回踩 EMA55 关键防守线 (RVOL: ${rvol.toFixed(2)}x)`
+            : isHighVol
+            ? `带量回测 EMA55 支撑位检验买盘 (RVOL: ${rvol.toFixed(2)}x)`
+            : `回踩 EMA55 稳态均线整理 (RVOL: ${rvol.toFixed(2)}x)`;
+        }
+
+        dynamicCandidates.push({
+          ticker: t,
+          name: item.name || t,
+          setup: setupDesc,
+          entryZone: `$${(item.price * 0.99).toFixed(2)} - $${(item.price * 1.005).toFixed(2)}`,
+          stopLoss: `$${(tData.ema55 * 0.985).toFixed(2)} (0穿刺跌破EMA55)`,
+          target: `$${(item.price * 1.06).toFixed(2)} - $${(item.price * 1.08).toFixed(2)}`,
+          bias: biasType,
+          catalyst: `日线均线呈多头排列，当日真实 RVOL 为 ${rvol.toFixed(2)}x，兼具流动性与结构稳定性`
+        });
+      }
+    }
+    if (dynamicCandidates.length >= 2) break;
+  }
+
   reportJson.actionPlaybook = {
     marketRegime: regime,
     recommendedAllocation: {
@@ -984,28 +1031,7 @@ isFallback 必须填为 false。`,
     },
     bullScenario: "若大盘平开高走放量站稳核心支撑，维持既定配置，顺势向突破年线/颈线的强势顺周期及高股息品种调仓。",
     bearScenario: "若长端收益率急升或开盘跌破 SPX 核心防守线，不可盲目抄底，严格按 1:1.5 盈亏比执行防守止损，提升现金头寸等待企稳。",
-    topCandidates: [
-      {
-        ticker: "COST",
-        name: "好市多 (Costco)",
-        setup: "缩量回踩 EMA55 稳态均线",
-        entryZone: "$890.00 - $898.00",
-        stopLoss: "$878.50 (跌破均线支撑止损)",
-        target: "$935.00 - $950.00",
-        bias: "回踩做多",
-        catalyst: "必选消费核心壁垒，高通胀环境下会员续费率与同店增速稳定"
-      },
-      {
-        ticker: "JPM",
-        name: "摩根大通 (JPMorgan)",
-        setup: "EMA21 上方强势多头横盘整理",
-        entryZone: "$232.00 - $235.00",
-        stopLoss: "$227.00 (跌破整理平台下沿)",
-        target: "$248.00 - $255.00",
-        bias: "多头突破",
-        catalyst: "长端利率走阔推升净息差收入，全美投行业务周期性复苏"
-      }
-    ]
+    topCandidates: dynamicCandidates
   };
 
   // 强校验

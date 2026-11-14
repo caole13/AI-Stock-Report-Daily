@@ -170,80 +170,92 @@ export const DailyActionPlaybook: React.FC<DailyActionPlaybookProps> = ({
               </span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {topCandidates.map((c) => (
-                <div
-                  key={c.ticker}
-                  onClick={() => onSelectStock && onSelectStock(c.ticker)}
-                  className="p-3.5 rounded-sm bg-[#141414] hover:bg-[#181818] border border-slate-800 hover:border-[#d4af37]/50 transition-all cursor-pointer flex flex-col justify-between group"
-                >
-                  <div>
-                    {/* Top Header */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-sm text-[#d4af37] group-hover:text-amber-300 transition-colors">
-                          ${c.ticker}
-                        </span>
-                        <span className="text-xs text-slate-300 font-sans font-medium">
-                          {c.name}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-[#1f1a10] text-[#e5c158] border border-[#d4af37]/40 font-semibold">
-                          {c.bias}
-                        </span>
-                        <a
-                          href={getYahooFinanceUrl(c.ticker)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1 text-slate-500 hover:text-white"
-                          title="在 Yahoo 查看"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      </div>
-                    </div>
-
-                    {/* Setup Tag */}
-                    <div className="mt-2 text-xs font-mono text-slate-300 flex items-center gap-1.5 bg-[#0a0a0a] p-1.5 rounded border border-slate-850">
-                      <span className="text-emerald-400">⚡ 形态特征:</span>
-                      <span>{c.setup}</span>
-                    </div>
-
-                    {/* Entry / Stop / Target Metrics */}
-                    <div className="grid grid-cols-3 gap-2 mt-2 text-[11px] font-mono">
-                      <div className="p-1.5 rounded bg-[#0e0e0e] border border-slate-850 text-center">
-                        <span className="text-slate-500 block text-[9px]">建议介入区间</span>
-                        <span className="text-slate-200 font-semibold">{c.entryZone}</span>
-                      </div>
-                      <div className="p-1.5 rounded bg-rose-950/20 border border-rose-900/40 text-center">
-                        <span className="text-rose-400/80 block text-[9px]">严格止损防守</span>
-                        <span className="text-rose-300 font-semibold">{c.stopLoss.split(" ")[0]}</span>
-                      </div>
-                      <div className="p-1.5 rounded bg-emerald-950/20 border border-emerald-900/40 text-center">
-                        <span className="text-emerald-400/80 block text-[9px]">预期目标位</span>
-                        <span className="text-emerald-300 font-semibold">{c.target}</span>
-                      </div>
-                    </div>
-
-                    {/* Catalyst description */}
-                    {c.catalyst && (
-                      <p className="text-[11px] text-slate-400 font-sans mt-2 leading-relaxed">
-                        <span className="text-slate-500 font-mono">驱动催化: </span>
-                        {c.catalyst}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-3 pt-2 border-t border-slate-850/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                    <span>点击查看个股 1H / 15M 深度量价结构</span>
-                    <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform text-[#d4af37]" />
-                  </div>
+            {topCandidates.length === 0 ? (
+              <div className="p-4 rounded-sm bg-[#141414] border border-dashed border-slate-800 text-center space-y-1.5">
+                <div className="flex items-center justify-center gap-2 text-amber-400 font-mono text-xs font-semibold">
+                  <ShieldCheck className="w-4 h-4 text-amber-400" />
+                  今日暂无符合严格量价共振的重点候选标的
                 </div>
-              ))}
-            </div>
+                <p className="text-[11px] text-slate-400 font-sans max-w-lg mx-auto leading-relaxed">
+                  当前大盘呈现结构性分化博弈，监测池中暂无同时满足【日线多头排列】且【缩量回踩核心均线或放量有效突破】的高胜率标的。建议遵守仓位风控纪律，以防守对冲为主，切勿盲目逆势接飞刀。
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {topCandidates.map((c) => (
+                  <div
+                    key={c.ticker}
+                    onClick={() => onSelectStock && onSelectStock(c.ticker)}
+                    className="p-3.5 rounded-sm bg-[#141414] hover:bg-[#181818] border border-slate-800 hover:border-[#d4af37]/50 transition-all cursor-pointer flex flex-col justify-between group"
+                  >
+                    <div>
+                      {/* Top Header */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm text-[#d4af37] group-hover:text-amber-300 transition-colors">
+                            ${c.ticker}
+                          </span>
+                          <span className="text-xs text-slate-300 font-sans font-medium">
+                            {c.name}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-[#1f1a10] text-[#e5c158] border border-[#d4af37]/40 font-semibold">
+                            {c.bias}
+                          </span>
+                          <a
+                            href={getYahooFinanceUrl(c.ticker)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
+                            className="p-1 text-slate-500 hover:text-white"
+                            title="在 Yahoo 查看"
+                          >
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* Setup Tag */}
+                      <div className="mt-2 text-xs font-mono text-slate-300 flex items-center gap-1.5 bg-[#0a0a0a] p-1.5 rounded border border-slate-850">
+                        <span className="text-emerald-400">⚡ 形态特征:</span>
+                        <span>{c.setup}</span>
+                      </div>
+
+                      {/* Entry / Stop / Target Metrics */}
+                      <div className="grid grid-cols-3 gap-2 mt-2 text-[11px] font-mono">
+                        <div className="p-1.5 rounded bg-[#0e0e0e] border border-slate-850 text-center">
+                          <span className="text-slate-500 block text-[9px]">建议介入区间</span>
+                          <span className="text-slate-200 font-semibold">{c.entryZone}</span>
+                        </div>
+                        <div className="p-1.5 rounded bg-rose-950/20 border border-rose-900/40 text-center">
+                          <span className="text-rose-400/80 block text-[9px]">严格止损防守</span>
+                          <span className="text-rose-300 font-semibold">{c.stopLoss.split(" ")[0]}</span>
+                        </div>
+                        <div className="p-1.5 rounded bg-emerald-950/20 border border-emerald-900/40 text-center">
+                          <span className="text-emerald-400/80 block text-[9px]">预期目标位</span>
+                          <span className="text-emerald-300 font-semibold">{c.target}</span>
+                        </div>
+                      </div>
+
+                      {/* Catalyst description */}
+                      {c.catalyst && (
+                        <p className="text-[11px] text-slate-400 font-sans mt-2 leading-relaxed">
+                          <span className="text-slate-500 font-mono">驱动催化: </span>
+                          {c.catalyst}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="mt-3 pt-2 border-t border-slate-850/80 flex items-center justify-between text-[10px] font-mono text-slate-500">
+                      <span>点击查看个股 1H / 15M 深度量价结构</span>
+                      <ArrowRight className="w-3 h-3 group-hover:translate-x-1 transition-transform text-[#d4af37]" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

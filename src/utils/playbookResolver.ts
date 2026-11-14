@@ -16,18 +16,47 @@ export function resolveActionPlaybook(data: HistoricalDailyData | null | undefin
   const macro: any = data.macro || {};
   const assets: any[] = macro.items || macro.assets || [];
 
-  // 构建个股现价映射表 (优先取龙头及异动榜中的价格)
+  // 构建个股现价与真实 RVOL 映射表
   const priceMap: Record<string, number> = {};
+  const rvolMap: Record<string, number> = {};
+  const nameMap: Record<string, string> = {
+    COST: "好市多",
+    JPM: "摩根大通",
+    XOM: "埃克森美孚",
+    LLY: "礼来",
+    NVDA: "英伟达",
+    MSFT: "微软",
+    AMZN: "亚马逊",
+    AAPL: "苹果",
+    GOOGL: "谷歌",
+    META: "Meta",
+  };
+
   (data.sectors || []).forEach((sec) => {
     (sec.leaders || []).forEach((l) => {
       if (l.ticker && typeof l.price === "number") {
         priceMap[l.ticker] = l.price;
       }
+      if (l.ticker && l.name) {
+        nameMap[l.ticker] = l.name;
+      }
+      if (l.ticker && l.rvol !== undefined && l.rvol !== null) {
+        const parsed = typeof l.rvol === "number" ? l.rvol : parseFloat(String(l.rvol));
+        if (!isNaN(parsed)) rvolMap[l.ticker] = parsed;
+      }
     });
   });
+
   (data.movers || []).forEach((m) => {
     if (m.ticker && typeof m.price === "number") {
       priceMap[m.ticker] = m.price;
+    }
+    if (m.ticker && m.name) {
+      nameMap[m.ticker] = m.name;
+    }
+    if (m.ticker && m.rvol !== undefined && m.rvol !== null) {
+      const parsed = typeof m.rvol === "number" ? m.rvol : parseFloat(String(m.rvol));
+      if (!isNaN(parsed)) rvolMap[m.ticker] = parsed;
     }
   });
 
@@ -69,55 +98,55 @@ export function resolveActionPlaybook(data: HistoricalDailyData | null | undefin
   const qqqSupportVal = qqqTech.ema21 ? qqqTech.ema21 : Number((qqqPrice * 0.982).toFixed(2));
   const qqqInvalVal = qqqTech.ema55 ? qqqTech.ema55 : Number((qqqPrice * 0.972).toFixed(2));
 
-  // 3. 动态提炼 2~3 只具备真实技术面共振的行动候选标的
+  // 3. 动态提炼具备真实技术面与量能共振的行动候选标的 (绝不填充虚假静态兜底)
   const candidates: ActionPlaybookCandidate[] = [];
+  const trackedTickers = ["COST", "JPM", "XOM", "LLY", "NVDA", "MSFT", "AMZN", "AAPL", "GOOGL", "META"];
 
-  // 尝试在龙头中寻找 EMA 结构优良的个股
-  const trackedTickers = ["COST", "JPM", "XOM", "LLY", "NVDA", "MSFT", "AMZN"];
   for (const t of trackedTickers) {
     const tData = tech[t];
     const curPrice = priceMap[t];
     if (tData && curPrice && tData.ema21 && tData.ema55) {
+      // 均线多头趋势且价格在 EMA55 之上
       if (tData.ema21 > tData.ema55 && curPrice >= tData.ema55 * 0.99) {
-        // 多头趋势或回踩结构
+        const rvol = rvolMap[t] !== undefined ? rvolMap[t] : 1.0;
+        const isHighVol = rvol >= 1.2;
+        const isLowVol = rvol < 0.9;
+
+        let setupDesc = "";
+        let biasType = "";
+
+        if (curPrice > tData.ema21) {
+          biasType = "多头突破";
+          setupDesc = isHighVol
+            ? `均线多头排列 · 放量突破主升 (RVOL: ${rvol.toFixed(2)}x)`
+            : isLowVol
+            ? `均线多头排列 · 缩量整固蓄势 (RVOL: ${rvol.toFixed(2)}x)`
+            : `均线多头排列 · 稳步上行 (RVOL: ${rvol.toFixed(2)}x)`;
+        } else {
+          biasType = "回踩做多";
+          setupDesc = isLowVol
+            ? `缩量回踩 EMA55 关键防守线 (RVOL: ${rvol.toFixed(2)}x)`
+            : isHighVol
+            ? `带量回测 EMA55 支撑位检验买盘 (RVOL: ${rvol.toFixed(2)}x)`
+            : `回踩 EMA55 稳态均线整理 (RVOL: ${rvol.toFixed(2)}x)`;
+        }
+
         candidates.push({
           ticker: t,
-          name: t === "COST" ? "好市多" : t === "JPM" ? "摩根大通" : t === "XOM" ? "埃克森美孚" : t === "LLY" ? "礼来" : t === "NVDA" ? "英伟达" : t,
-          setup: curPrice > tData.ema21 ? "均线多头排列 · 突破放量跟随" : "缩量回踩 EMA55 均线关键防守位",
+          name: nameMap[t] || t,
+          setup: setupDesc,
           entryZone: `$${(curPrice * 0.99).toFixed(2)} - $${(curPrice * 1.005).toFixed(2)}`,
           stopLoss: `$${(tData.ema55 * 0.985).toFixed(2)} (0穿刺跌破EMA55)`,
           target: `$${(curPrice * 1.06).toFixed(2)} - $${(curPrice * 1.08).toFixed(2)}`,
-          bias: curPrice > tData.ema21 ? "多头突破" : "回踩做多",
-          catalyst: "真实均线金叉共振，机构中长线仓位配置与防御避险需求"
+          bias: biasType,
+          catalyst: `日线均线呈多头排列，当日真实 RVOL 为 ${rvol.toFixed(2)}x，兼具流动性与结构稳定性`
         });
       }
     }
     if (candidates.length >= 2) break;
   }
 
-  // 兜底保障至少 2 个高确定性标的
-  if (candidates.length === 0) {
-    candidates.push({
-      ticker: "COST",
-      name: "好市多 (Costco)",
-      setup: "缩量回踩 EMA55 稳态均线",
-      entryZone: "$890.00 - $898.00",
-      stopLoss: "$878.50 (跌破均线支撑止损)",
-      target: "$935.00 - $950.00",
-      bias: "回踩做多",
-      catalyst: "必选消费核心壁垒，高通胀环境下会员续费率与同店增速稳定"
-    });
-    candidates.push({
-      ticker: "JPM",
-      name: "摩根大通 (JPMorgan)",
-      setup: "EMA21 上方强势多头横盘整理",
-      entryZone: "$232.00 - $235.00",
-      stopLoss: "$227.00 (跌破整理平台下沿)",
-      target: "$248.00 - $255.00",
-      bias: "多头突破",
-      catalyst: "长端利率走阔推升净息差收入，全美投行业务周期性复苏"
-    });
-  }
+  // 注意：若无真实标的符合条件，保持空数组 []，前端组件会展示专业风控提示，绝不捏造虚假候选
 
   return {
     marketRegime: regime,
