@@ -7,6 +7,17 @@ on:
     # 避开盘中与 17:00 官方结算延迟期，确保获取最终结算收盘价
     - cron: '18 21,22 * * 1-5'
   workflow_dispatch:
+    inputs:
+      force:
+        description: '是否强制运行（跳过周末/节假日休市检查）'
+        required: false
+        default: true
+        type: boolean
+      target_date:
+        description: '指定目标日期 (YYYY-MM-DD)'
+        required: false
+        default: '2026-11-13'
+        type: string
 
 jobs:
   run-pipeline:
@@ -43,6 +54,8 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_RUN: ${{ inputs.force || 'false' }}
+          TARGET_DATE: ${{ inputs.target_date || '' }}
         run: |
           node scripts/auto-daily-report.mjs
 
