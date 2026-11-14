@@ -217,11 +217,17 @@ function fetchTickerData(ticker, retryCount = 2) {
             const changePct = (changePctNum > 0 ? "+" : "") + changePctNum.toFixed(2) + "%";
             const prevClose = changePctNum !== 0 ? Number((price / (1 + changePctNum / 100)).toFixed(price < 10 ? 3 : 2)) : price;
 
-            // RVOL 测算：当日成交量 / 过去 30 个交易日平均成交量
+            // RVOL 测算：当日成交量 / 过去 30 个交易日平均成交量 (无充分基准或无量时严格保留 null，绝不伪造 1.0)
             const lastVol = meta.regularMarketVolume ?? (volumes.length > 0 ? volumes[volumes.length - 1] : 0);
-            const avgVolSlice = volumes.slice(-30);
-            const avgVol = avgVolSlice.length > 0 ? avgVolSlice.reduce((a, b) => a + b, 0) / avgVolSlice.length : lastVol;
-            const rvol = avgVol > 0 ? Number((lastVol / avgVol).toFixed(2)) : 1.0;
+            let rvol = null;
+            if (lastVol > 0 && volumes.length >= 5) {
+              const histVolumes = volumes.slice(0, -1);
+              const windowVols = histVolumes.length >= 5 ? histVolumes.slice(-30) : volumes.slice(-30);
+              const avgVol = windowVols.reduce((a, b) => a + b, 0) / windowVols.length;
+              if (avgVol > 0) {
+                rvol = Number((lastVol / avgVol).toFixed(2));
+              }
+            }
 
             const technicals = {
               ema21: calcEMA(closes, 21),
@@ -690,7 +696,8 @@ async function runAutomation() {
     const etfData = marketMap[sec.etf];
     const leadersInfo = sec.leaders.map(l => {
       const d = marketMap[l];
-      return `${l} (${d?.changePct || "+0.00%"}, RVOL ${d?.rvol || 1.0}x)`;
+      const rvolStr = typeof d?.rvol === "number" ? `RVOL ${d.rvol}x` : "量比缺失";
+      return `${l} (${d?.changePct || "+0.00%"}, ${rvolStr})`;
     }).join(", ");
     sectorLines.push(`- ${sec.name} (${sec.etf} ${etfData?.changePct || "+0.00%"}): ${leadersInfo}`);
   });
@@ -834,7 +841,7 @@ isFallback 必须填为 false。`,
           ticker: "NVDA",
           name: "英伟达",
           changePct: marketMap["NVDA"]?.changePct || "+1.34%",
-          rvol: marketMap["NVDA"]?.rvol ? `${marketMap["NVDA"].rvol}x` : "1.10x",
+          rvol: typeof marketMap["NVDA"]?.rvol === "number" ? `${marketMap["NVDA"].rvol}x` : "量比缺失",
           sector: "信息技术与半导体",
           newsAttribution: "半导体行业资金承接意愿强劲，算力芯片全球需求旺盛，机构筹码高度锁定。",
           shortTermOutlook: "高位均线多头排列，若成交量保持健康，短线维持强势整理格局。",
@@ -845,7 +852,7 @@ isFallback 必须填为 false。`,
           ticker: "TSLA",
           name: "特斯拉",
           changePct: marketMap["TSLA"]?.changePct || "+0.42%",
-          rvol: marketMap["TSLA"]?.rvol ? `${marketMap["TSLA"].rvol}x` : "0.95x",
+          rvol: typeof marketMap["TSLA"]?.rvol === "number" ? `${marketMap["TSLA"].rvol}x` : "量比缺失",
           sector: "可选消费与电商",
           newsAttribution: "市场对AI算力集群与无人出租车商业化落地预期持续发酵，多空博弈激烈。",
           shortTermOutlook: "区间箱体震荡，等待放量突破关键阻力位。",
@@ -856,7 +863,7 @@ isFallback 必须填为 false。`,
           ticker: "XOM",
           name: "埃克森美孚",
           changePct: marketMap["XOM"]?.changePct || "-1.20%",
-          rvol: marketMap["XOM"]?.rvol ? `${marketMap["XOM"].rvol}x` : "0.88x",
+          rvol: typeof marketMap["XOM"]?.rvol === "number" ? `${marketMap["XOM"].rvol}x` : "量比缺失",
           sector: "能源与石油天然气",
           newsAttribution: "WTI原油大宗主力合约回调，压制上游采掘板块情绪，短线多头获利回吐。",
           shortTermOutlook: "短线下探测试支撑，需等待油价企稳信号出现。",
@@ -896,15 +903,17 @@ isFallback 必须填为 false。`,
   reportJson.assets = deterministicAssets;
   reportJson.date = today;
 
-  // 补齐与矫正 11 大行业板块实际涨跌幅
+  // 补齐与矫正 11 大行业板块实际涨跌幅、价格、成交量与真实 RVOL
   if (Array.isArray(reportJson.sectors)) {
     for (const sec of reportJson.sectors) {
       if (Array.isArray(sec.leaders)) {
         for (const leader of sec.leaders) {
           const item = marketMap[leader.ticker];
-          if (item && item.changePct) {
-            leader.changePct = item.changePct;
-            leader.price = item.price;
+          if (item) {
+            if (item.changePct) leader.changePct = item.changePct;
+            if (item.price !== undefined) leader.price = item.price;
+            if (item.volume !== undefined) leader.volume = item.volume;
+            leader.rvol = typeof item.rvol === "number" ? `${item.rvol}x` : null;
             leader.technicals = item.technicals;
           }
         }
@@ -916,10 +925,10 @@ isFallback 必须填为 false。`,
   if (Array.isArray(reportJson.movers)) {
     for (const mover of reportJson.movers) {
       const item = marketMap[mover.ticker];
-      if (item && item.changePct) {
-        mover.changePct = item.changePct;
-        mover.price = item.price;
-        if (item.rvol) mover.rvol = `${item.rvol}x`;
+      if (item) {
+        if (item.changePct) mover.changePct = item.changePct;
+        if (item.price !== undefined) mover.price = item.price;
+        mover.rvol = typeof item.rvol === "number" ? `${item.rvol}x` : null;
         mover.technicals = item.technicals;
       }
     }
@@ -931,6 +940,8 @@ isFallback 必须填为 false。`,
     if (data?.technicals) {
       technicalIndicators[t] = {
         price: data.price,
+        volume: data.volume,
+        rvol: typeof data.rvol === "number" ? data.rvol : null,
         ...data.technicals
       };
     }
@@ -969,16 +980,17 @@ isFallback 必须填为 false。`,
   const qqqSupportVal = qqqTech.ema21 ? qqqTech.ema21 : 485;
   const qqqInvalVal = qqqTech.ema55 ? qqqTech.ema55 : 478;
 
-  // 动态筛选满足 EMA 多头排列与量能共振的行动候选标的 (绝不填充虚假静态兜底)
+  // 动态筛选满足 EMA 多头排列与实测 RVOL 量能共振的行动候选标的 (绝不填充虚假静态兜底)
   const candidatePool = ["COST", "JPM", "XOM", "LLY", "NVDA", "MSFT", "AMZN", "AAPL", "GOOGL", "META"];
   const dynamicCandidates = [];
 
   for (const t of candidatePool) {
     const item = marketMap[t];
     const tData = technicalIndicators[t];
-    if (item && item.price && tData && tData.ema21 && tData.ema55) {
+    // 严格检查：必须有价格、均线，且必须有实测数值的 30 天 RVOL！无实测量比绝不伪造
+    if (item && item.price && tData && tData.ema21 && tData.ema55 && typeof item.rvol === "number") {
       if (tData.ema21 > tData.ema55 && item.price >= tData.ema55 * 0.99) {
-        const rvol = item.rvol ? parseFloat(String(item.rvol)) : 1.0;
+        const rvol = item.rvol;
         const isHighVol = rvol >= 1.2;
         const isLowVol = rvol < 0.9;
 
@@ -1009,7 +1021,7 @@ isFallback 必须填为 false。`,
           stopLoss: `$${(tData.ema55 * 0.985).toFixed(2)} (0穿刺跌破EMA55)`,
           target: `$${(item.price * 1.06).toFixed(2)} - $${(item.price * 1.08).toFixed(2)}`,
           bias: biasType,
-          catalyst: `日线均线呈多头排列，当日真实 RVOL 为 ${rvol.toFixed(2)}x，兼具流动性与结构稳定性`
+          catalyst: `日线均线呈多头排列，当日实测 RVOL 为 ${rvol.toFixed(2)}x，兼具流动性与结构稳定性`
         });
       }
     }

@@ -30,8 +30,19 @@ export function resolveActionPlaybook(data: HistoricalDailyData | null | undefin
     AAPL: "苹果",
     GOOGL: "谷歌",
     META: "Meta",
+    SO: "南方电力",
+    TSLA: "特斯拉"
   };
 
+  // 1. 从 technicalIndicators 中提取实测量比
+  Object.entries(tech).forEach(([ticker, tData]: [string, any]) => {
+    if (tData && tData.rvol !== undefined && tData.rvol !== null) {
+      const parsed = typeof tData.rvol === "number" ? tData.rvol : parseFloat(String(tData.rvol));
+      if (!isNaN(parsed)) rvolMap[ticker] = parsed;
+    }
+  });
+
+  // 2. 从 sectors leaders 中提取现价与实测量比
   (data.sectors || []).forEach((sec) => {
     (sec.leaders || []).forEach((l) => {
       if (l.ticker && typeof l.price === "number") {
@@ -47,6 +58,7 @@ export function resolveActionPlaybook(data: HistoricalDailyData | null | undefin
     });
   });
 
+  // 3. 从 movers 中提取现价与实测量比
   (data.movers || []).forEach((m) => {
     if (m.ticker && typeof m.price === "number") {
       priceMap[m.ticker] = m.price;
@@ -98,17 +110,19 @@ export function resolveActionPlaybook(data: HistoricalDailyData | null | undefin
   const qqqSupportVal = qqqTech.ema21 ? qqqTech.ema21 : Number((qqqPrice * 0.982).toFixed(2));
   const qqqInvalVal = qqqTech.ema55 ? qqqTech.ema55 : Number((qqqPrice * 0.972).toFixed(2));
 
-  // 3. 动态提炼具备真实技术面与量能共振的行动候选标的 (绝不填充虚假静态兜底)
+  // 3. 动态提炼具备真实技术面与实测量能共振的行动候选标的 (绝不填充虚假静态兜底或虚假 1.0)
   const candidates: ActionPlaybookCandidate[] = [];
-  const trackedTickers = ["COST", "JPM", "XOM", "LLY", "NVDA", "MSFT", "AMZN", "AAPL", "GOOGL", "META"];
+  const trackedTickers = ["NVDA", "META", "TSLA", "MSFT", "AAPL", "AMZN", "GOOGL", "COST", "JPM", "XOM", "LLY"];
 
   for (const t of trackedTickers) {
     const tData = tech[t];
     const curPrice = priceMap[t];
-    if (tData && curPrice && tData.ema21 && tData.ema55) {
-      // 均线多头趋势且价格在 EMA55 之上
+    const hasRvol = typeof rvolMap[t] === "number" && !isNaN(rvolMap[t]);
+
+    // 严格要求：必须有现价、EMA21/55 均线，且必须有实测 30 天 RVOL！缺值时坚决跳过
+    if (tData && curPrice && tData.ema21 && tData.ema55 && hasRvol) {
       if (tData.ema21 > tData.ema55 && curPrice >= tData.ema55 * 0.99) {
-        const rvol = rvolMap[t] !== undefined ? rvolMap[t] : 1.0;
+        const rvol = rvolMap[t];
         const isHighVol = rvol >= 1.2;
         const isLowVol = rvol < 0.9;
 
@@ -139,14 +153,14 @@ export function resolveActionPlaybook(data: HistoricalDailyData | null | undefin
           stopLoss: `$${(tData.ema55 * 0.985).toFixed(2)} (0穿刺跌破EMA55)`,
           target: `$${(curPrice * 1.06).toFixed(2)} - $${(curPrice * 1.08).toFixed(2)}`,
           bias: biasType,
-          catalyst: `日线均线呈多头排列，当日真实 RVOL 为 ${rvol.toFixed(2)}x，兼具流动性与结构稳定性`
+          catalyst: `日线均线呈多头排列，当日实测 RVOL 为 ${rvol.toFixed(2)}x，兼具流动性与结构稳定性`
         });
       }
     }
     if (candidates.length >= 2) break;
   }
 
-  // 注意：若无真实标的符合条件，保持空数组 []，前端组件会展示专业风控提示，绝不捏造虚假候选
+  // 注意：若无真实标的符合条件，保持空数组 []，前端组件与 Markdown 导出将展示专业风控提示，绝不捏造虚假候选
 
   return {
     marketRegime: regime,

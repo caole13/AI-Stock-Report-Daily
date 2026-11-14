@@ -232,6 +232,9 @@ export interface HistoricalDailyData {
   marketStatus?: string;
   isFallback?: boolean;
   technicalIndicators?: Record<string, {
+    price?: number | null;
+    volume?: number | null;
+    rvol?: number | null;
     ema21?: number | null;
     ema55?: number | null;
     ema144?: number | null;
