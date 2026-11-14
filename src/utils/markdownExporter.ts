@@ -1,5 +1,6 @@
 import { HistoricalDailyData } from "../types";
 import { getPriceActionSignals, getBottomHuntSignals, getUpcomingMacroCalendar } from "../data/radarSignals";
+import { resolveActionPlaybook } from "./playbookResolver";
 
 export function generateMasterMarkdownReport(
   data: HistoricalDailyData,
@@ -14,6 +15,7 @@ export function generateMasterMarkdownReport(
   const transmissions: any[] = data.transmissions || (data as any).causalChains || [];
   const priceActionSignals = getPriceActionSignals(liveQuotes);
   const bottomSignals = getBottomHuntSignals(liveQuotes);
+  const playbook = resolveActionPlaybook(data);
 
   let md = `# 【MarketPulse AI 策略师复盘研报 · ${data.displayDate || selectedDate}】
 > 基准日期: ${selectedDate} | 市场基调: ${data.marketTone || "分化"} | 市场状态: ${data.marketStatus || "Closed"}
@@ -21,7 +23,36 @@ export function generateMasterMarkdownReport(
 
 ---
 
-## 🏛️ 一、宏观大局与跨资产水温 (Macro Overview)
+${
+  playbook
+    ? `## 🎯 【明日核心行动剧本 (Daily Action Playbook)】
+> **市场定调**: \`${playbook.marketRegime}\`
+> **仓位建议**: 多头股票 **${playbook.recommendedAllocation.longEquitiesPct}%** · 防守对冲/现金 **${playbook.recommendedAllocation.hedgingOrCashPct}%**
+> **战术配置逻辑**: ${playbook.recommendedAllocation.notes}
+
+### 🛡️ 核心防守与失效水位 (Invalidation Levels)
+- **标普 500 (SPX)**: 关键支撑参考 **\`${playbook.defenseLevels.spxKeySupport}\`** | 结构破位止损 **\`${playbook.defenseLevels.spxInvalidation}\`**
+- **纳斯达克 100 (QQQ)**: 关键支撑参考 **\`${playbook.defenseLevels.qqqKeySupport}\`** | 结构破位止损 **\`${playbook.defenseLevels.qqqInvalidation}\`**
+
+### ⚡ 双向情景推演与应对规则
+- 🟢 **多头剧本**: ${playbook.bullScenario}
+- 🔴 **空头剧本**: ${playbook.bearScenario}
+
+### 🚀 重点行动候选标的 (Actionable Setups)
+| 代码 | 名称 | 信号形态 | 介入参考区间 | 止损保护 | 目标位 | 核心催化 |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+${playbook.topCandidates
+  .map(
+    (c) =>
+      `| **${c.ticker}** | ${c.name} | \`${c.bias}\` ${c.setup} | ${c.entryZone} | \`${c.stopLoss}\` | **${c.target}** | ${c.catalyst || "--"} |`
+  )
+  .join("\n")}
+
+---
+
+`
+    : ""
+}## 🏛️ 一、宏观大局与跨资产水温 (Macro Overview)
 **核心论点**: ${macro.coreThesis || macro.summary || "宏观流动性平稳，跨资产紧密传导"}
 
 ### 核心资产收盘基准 (Ground Truth)

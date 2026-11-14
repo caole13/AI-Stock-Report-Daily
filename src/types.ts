@@ -71,6 +71,35 @@ export interface KeyLevels {
   invalidation: string;
 }
 
+export interface ActionPlaybookCandidate {
+  ticker: string;
+  name: string;
+  setup: string;
+  entryZone: string;
+  stopLoss: string;
+  target: string;
+  bias: '多头突破' | '回踩做多' | '防御对冲' | '高抛减仓' | string;
+  catalyst?: string;
+}
+
+export interface DailyActionPlaybook {
+  marketRegime: string;
+  recommendedAllocation: {
+    longEquitiesPct: number;
+    hedgingOrCashPct: number;
+    notes: string;
+  };
+  defenseLevels: {
+    spxKeySupport: string;
+    spxInvalidation: string;
+    qqqKeySupport: string;
+    qqqInvalidation: string;
+  };
+  bullScenario: string;
+  bearScenario: string;
+  topCandidates: ActionPlaybookCandidate[];
+}
+
 export interface MoverStockItem {
   ticker: string;
   name: string;
@@ -210,6 +239,7 @@ export interface HistoricalDailyData {
     ma200?: number | null;
   }>;
   marketTone: '偏多' | '偏空' | '震荡' | '分化' | '高波动' | '防御性震荡';
+  actionPlaybook?: DailyActionPlaybook;
   macro: MacroData;
   aiReport: DailyAiReport;
   sectors: SectorCategory[];

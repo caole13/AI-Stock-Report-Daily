@@ -937,6 +937,77 @@ isFallback 必须填为 false。`,
   });
   reportJson.technicalIndicators = technicalIndicators;
 
+  // 注入每日核心行动剧本 (Daily Action Playbook)
+  const tone = reportJson.marketTone || "防御性震荡";
+  let regime = "防御性震荡 (Selective Defense)";
+  let longPct = 60;
+  let hedgePct = 40;
+  let allocNote = "以高现金流必选消费、能源及大金融防守为主，控仓观望科技高估值品种。";
+  if (tone === "偏多") {
+    regime = "顺势进攻 (Risk-On Growth)";
+    longPct = 80;
+    hedgePct = 20;
+    allocNote = "主线聚焦半导体与科技成长龙头，底仓依托 EMA21 颈线顺势推保护。";
+  } else if (tone === "偏空") {
+    regime = "收缩防守 (Risk-Off Preservation)";
+    longPct = 35;
+    hedgePct = 65;
+    allocNote = "提升现金比重与做空对冲工具，严禁左侧盲目接飞刀。";
+  } else {
+    regime = "分化震荡 · 结构性博弈 (Range-Bound Selective)";
+    longPct = 55;
+    hedgePct = 45;
+    allocNote = "轻指数重个股，仓位控制在 5~6 成，重点捕捉均线多头排列且缩量回踩的关键支撑标的。";
+  }
+
+  const spxP = macro.SPX?.price || 5870;
+  const qqqP = 495;
+  const spxTech = technicalIndicators["SPX"] || technicalIndicators["SPY"] || {};
+  const qqqTech = technicalIndicators["QQQ"] || {};
+  const spxSupportVal = spxTech.ema21 ? spxTech.ema21 : Math.round(spxP * 0.985);
+  const spxInvalVal = spxTech.ema55 ? spxTech.ema55 : Math.round(spxP * 0.975);
+  const qqqSupportVal = qqqTech.ema21 ? qqqTech.ema21 : 485;
+  const qqqInvalVal = qqqTech.ema55 ? qqqTech.ema55 : 478;
+
+  reportJson.actionPlaybook = {
+    marketRegime: regime,
+    recommendedAllocation: {
+      longEquitiesPct: longPct,
+      hedgingOrCashPct: hedgePct,
+      notes: allocNote
+    },
+    defenseLevels: {
+      spxKeySupport: `${spxSupportVal} 点 (EMA21/MA50 核心防守位)`,
+      spxInvalidation: `跌破 ${spxInvalVal} 点 (确认多头结构失效，触发全面防守)`,
+      qqqKeySupport: `$${qqqSupportVal} (科技成长股关键心理承接区)`,
+      qqqInvalidation: `跌破 $${qqqInvalVal} (破位下行，需减持高 Beta 半导体与 AI 标的)`
+    },
+    bullScenario: "若大盘平开高走放量站稳核心支撑，维持既定配置，顺势向突破年线/颈线的强势顺周期及高股息品种调仓。",
+    bearScenario: "若长端收益率急升或开盘跌破 SPX 核心防守线，不可盲目抄底，严格按 1:1.5 盈亏比执行防守止损，提升现金头寸等待企稳。",
+    topCandidates: [
+      {
+        ticker: "COST",
+        name: "好市多 (Costco)",
+        setup: "缩量回踩 EMA55 稳态均线",
+        entryZone: "$890.00 - $898.00",
+        stopLoss: "$878.50 (跌破均线支撑止损)",
+        target: "$935.00 - $950.00",
+        bias: "回踩做多",
+        catalyst: "必选消费核心壁垒，高通胀环境下会员续费率与同店增速稳定"
+      },
+      {
+        ticker: "JPM",
+        name: "摩根大通 (JPMorgan)",
+        setup: "EMA21 上方强势多头横盘整理",
+        entryZone: "$232.00 - $235.00",
+        stopLoss: "$227.00 (跌破整理平台下沿)",
+        target: "$248.00 - $255.00",
+        bias: "多头突破",
+        catalyst: "长端利率走阔推升净息差收入，全美投行业务周期性复苏"
+      }
+    ]
+  };
+
   // 强校验
   await validateReportData(reportJson);
 

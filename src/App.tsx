@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Header } from "./components/Header";
 import { TickerBar } from "./components/TickerBar";
 import { MacroOverview } from "./components/MacroOverview";
+import { DailyActionPlaybook } from "./components/DailyActionPlaybook";
 import { AiBriefingView } from "./components/AiBriefingView";
 import { SectorHeatmap } from "./components/SectorHeatmap";
 import { MoversScanner } from "./components/MoversScanner";
@@ -479,6 +480,11 @@ export function App() {
           </div>
         ) : (
           <>
+            <DailyActionPlaybook
+              data={currentDayData}
+              onSelectStock={handleSelectStock}
+            />
+
             <MacroOverview
               macroData={currentDayData.macro}
               selectedDate={selectedDate}
