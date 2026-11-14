@@ -476,7 +476,7 @@ export const UPCOMING_MACRO_CALENDAR_2026_11_13: UpcomingMacroCalendarEvent[] = 
     category: "PCE",
     importance: "CRITICAL",
     forecast: "核心PCE年率 2.7% / 月率 +0.2%；GDP修正值 2.8%；初请 21.6万",
-    previous: "核心PCE年率 2.7% / 月率 +0.3%；GDP初值 2.8%；初请 21.5万",
+    previous: "核心PCE年率 3.1% / 月率 +0.3%；GDP初值 3.4%；初请 21.5万",
     strategicImpact: "美联储 12 月议息会议前最关键通胀与增长通牒！因感恩节假期提前至周三与 GDP 修正值合并发布，直接锚定年末降息路径。",
   },
   {
