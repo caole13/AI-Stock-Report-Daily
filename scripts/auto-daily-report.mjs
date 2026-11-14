@@ -4,6 +4,7 @@ import https from "https";
 import http from "http";
 import { fileURLToPath } from "url";
 import dotenv from "dotenv";
+import { calculate30DayRvol, derivePlaybookCandidates } from "../src/utils/playbookEngine.js";
 
 // 针对本地 Node 16 与 GitHub Actions Node 22 的运行时流与 fetch 垫片
 if (typeof globalThis.ReadableStream === "undefined") {
@@ -217,17 +218,9 @@ function fetchTickerData(ticker, retryCount = 2) {
             const changePct = (changePctNum > 0 ? "+" : "") + changePctNum.toFixed(2) + "%";
             const prevClose = changePctNum !== 0 ? Number((price / (1 + changePctNum / 100)).toFixed(price < 10 ? 3 : 2)) : price;
 
-            // RVOL 测算：当日成交量 / 过去 30 个交易日平均成交量 (无充分基准或无量时严格保留 null，绝不伪造 1.0)
+            // RVOL 测算：严格调用 calculate30DayRvol，要求当日前至少 30 个完整历史日线基准 (排除当日且基准不足时严格返回 null)
             const lastVol = meta.regularMarketVolume ?? (volumes.length > 0 ? volumes[volumes.length - 1] : 0);
-            let rvol = null;
-            if (lastVol > 0 && volumes.length >= 5) {
-              const histVolumes = volumes.slice(0, -1);
-              const windowVols = histVolumes.length >= 5 ? histVolumes.slice(-30) : volumes.slice(-30);
-              const avgVol = windowVols.reduce((a, b) => a + b, 0) / windowVols.length;
-              if (avgVol > 0) {
-                rvol = Number((lastVol / avgVol).toFixed(2));
-              }
-            }
+            const rvol = calculate30DayRvol(volumes, lastVol);
 
             const technicals = {
               ema21: calcEMA(closes, 21),
@@ -980,53 +973,22 @@ isFallback 必须填为 false。`,
   const qqqSupportVal = qqqTech.ema21 ? qqqTech.ema21 : 485;
   const qqqInvalVal = qqqTech.ema55 ? qqqTech.ema55 : 478;
 
-  // 动态筛选满足 EMA 多头排列与实测 RVOL 量能共振的行动候选标的 (绝不填充虚假静态兜底)
-  const candidatePool = ["COST", "JPM", "XOM", "LLY", "NVDA", "MSFT", "AMZN", "AAPL", "GOOGL", "META"];
-  const dynamicCandidates = [];
+  // 提取价格、量比与名称映射表，调用统一的候选筛选引擎 (保证与网页/历史推算 100% 规则一致)
+  const priceMap = {};
+  const rvolMap = {};
+  const nameMap = {};
+  Object.entries(marketMap).forEach(([t, item]) => {
+    if (typeof item?.price === "number") priceMap[t] = item.price;
+    if (typeof item?.rvol === "number") rvolMap[t] = item.rvol;
+    if (item?.name) nameMap[t] = item.name;
+  });
 
-  for (const t of candidatePool) {
-    const item = marketMap[t];
-    const tData = technicalIndicators[t];
-    // 严格检查：必须有价格、均线，且必须有实测数值的 30 天 RVOL！无实测量比绝不伪造
-    if (item && item.price && tData && tData.ema21 && tData.ema55 && typeof item.rvol === "number") {
-      if (tData.ema21 > tData.ema55 && item.price >= tData.ema55 * 0.99) {
-        const rvol = item.rvol;
-        const isHighVol = rvol >= 1.2;
-        const isLowVol = rvol < 0.9;
-
-        let setupDesc = "";
-        let biasType = "";
-
-        if (item.price > tData.ema21) {
-          biasType = "多头突破";
-          setupDesc = isHighVol
-            ? `均线多头排列 · 放量突破主升 (RVOL: ${rvol.toFixed(2)}x)`
-            : isLowVol
-            ? `均线多头排列 · 缩量整固蓄势 (RVOL: ${rvol.toFixed(2)}x)`
-            : `均线多头排列 · 稳步上行 (RVOL: ${rvol.toFixed(2)}x)`;
-        } else {
-          biasType = "回踩做多";
-          setupDesc = isLowVol
-            ? `缩量回踩 EMA55 关键防守线 (RVOL: ${rvol.toFixed(2)}x)`
-            : isHighVol
-            ? `带量回测 EMA55 支撑位检验买盘 (RVOL: ${rvol.toFixed(2)}x)`
-            : `回踩 EMA55 稳态均线整理 (RVOL: ${rvol.toFixed(2)}x)`;
-        }
-
-        dynamicCandidates.push({
-          ticker: t,
-          name: item.name || t,
-          setup: setupDesc,
-          entryZone: `$${(item.price * 0.99).toFixed(2)} - $${(item.price * 1.005).toFixed(2)}`,
-          stopLoss: `$${(tData.ema55 * 0.985).toFixed(2)} (0穿刺跌破EMA55)`,
-          target: `$${(item.price * 1.06).toFixed(2)} - $${(item.price * 1.08).toFixed(2)}`,
-          bias: biasType,
-          catalyst: `日线均线呈多头排列，当日实测 RVOL 为 ${rvol.toFixed(2)}x，兼具流动性与结构稳定性`
-        });
-      }
-    }
-    if (dynamicCandidates.length >= 2) break;
-  }
+  const dynamicCandidates = derivePlaybookCandidates({
+    tech: technicalIndicators,
+    priceMap,
+    rvolMap,
+    nameMap
+  });
 
   reportJson.actionPlaybook = {
     marketRegime: regime,
