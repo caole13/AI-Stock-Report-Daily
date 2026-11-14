@@ -144,21 +144,21 @@ export function resolveUnifiedStockData(
     rawStock?.open ??
     moverItem?.open ??
     benchmark.open ??
-    (price != null ? Number((price * 0.995).toFixed(2)) : null);
+    null;
 
   const high =
     liveQuote?.dayHigh ??
     rawStock?.high ??
     moverItem?.high ??
     benchmark.high ??
-    (price != null ? Number((price * 1.012).toFixed(2)) : null);
+    null;
 
   const low =
     liveQuote?.dayLow ??
     rawStock?.low ??
     moverItem?.low ??
     benchmark.low ??
-    (price != null ? Number((price * 0.988).toFixed(2)) : null);
+    null;
 
   // 5. Volume & RVOL
   const rawRvol =
@@ -208,15 +208,7 @@ export function resolveUnifiedStockData(
     (benchmark.sparkline && benchmark.sparkline.length >= 4 ? benchmark.sparkline : null) ??
     [];
 
-  if (sparkline.length < 4 && price != null) {
-    sparkline = [
-      open || price * 0.995,
-      Number(((open || price) * 0.998).toFixed(2)),
-      high || price * 1.008,
-      low || price * 0.992,
-      price,
-    ];
-  }
+
 
   // 7. News attribution / Catalyst
   const catalyst =
@@ -249,17 +241,15 @@ export function resolveUnifiedStockData(
     moverItem?.invalidationLevel ||
     moverItem?.keyLevels?.invalidation ||
     rawStock?.invalidationLevel ||
-    (price != null
-      ? `止损位观察 $${(price * (isPos ? 0.95 : 1.05)).toFixed(2)}`
-      : "null");
+    "null";
 
   const support =
     moverItem?.keyLevels?.support ||
-    (price != null ? `$${(price * 0.97).toFixed(2)} (关键支撑位)` : "null");
+    "null";
 
   const resistance =
     moverItem?.keyLevels?.resistance ||
-    (price != null ? `$${(price * 1.03).toFixed(2)} (前高阻力位)` : "null");
+    "null";
 
   // 9. Intraday Trend Description
   const amplitudeStr =

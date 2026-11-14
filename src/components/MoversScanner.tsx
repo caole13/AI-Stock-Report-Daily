@@ -135,14 +135,12 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
           const invalidation =
             stock.invalidationLevel ||
             stock.keyLevels?.invalidation ||
-            (displayPrice != null ? `$${(displayPrice * (numChange >= 0 ? 0.95 : 1.05)).toFixed(2)}` : "null");
+            "null";
 
           const chartPoints = (stock.sparkline && stock.sparkline.length >= 4)
             ? stock.sparkline
             : (benchmark.sparkline && benchmark.sparkline.length >= 4)
             ? benchmark.sparkline
-            : displayPrice != null
-            ? [displayPrice * 0.99, displayPrice * 0.995, displayPrice * 1.005, displayPrice]
             : [];
           const chartData = chartPoints.map((v, i) => ({
             i,

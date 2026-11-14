@@ -642,11 +642,13 @@ export function parseChangePct(str?: string | number | null): number {
   return isNaN(val) ? 0 : (String(str).includes('-') ? -Math.abs(val) : val);
 }
 
-export function parseRvol(rvol?: number | string | null): number {
-  if (rvol === null || rvol === undefined) return 1.0;
-  if (typeof rvol === 'number') return isNaN(rvol) ? 1.0 : rvol;
-  const num = parseFloat(String(rvol).replace('x', '').replace('X', '').replace('约', '').trim());
-  return isNaN(num) ? 1.0 : num;
+export function parseRvol(rvol?: number | string | null): number | null {
+  if (rvol === null || rvol === undefined) return null;
+  if (typeof rvol === 'number') return isNaN(rvol) ? null : rvol;
+  const cleaned = String(rvol).replace('x', '').replace('X', '').replace('约', '').trim();
+  if (!cleaned) return null;
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? null : num;
 }
 
 export function formatVolumeNumber(vol?: number, unit: string = "股"): string | undefined {
@@ -682,9 +684,9 @@ export function formatVolumeNumber(vol?: number, unit: string = "股"): string |
 }
 
 export interface ResolvedStockVolume {
-  todayVol: number;
-  avgVol: number;
-  rvol: number;
+  todayVol?: number;
+  avgVol?: number;
+  rvol?: number | null;
   volumeUnit: string;
   sharesOutstanding?: number;
   turnoverRate?: number;
@@ -693,6 +695,7 @@ export interface ResolvedStockVolume {
 
 /**
  * 全局统一解析任意标的（宏观资产、ETF或行业龙头股）的成交量数据
+ * 严格秉持真实原则，绝不使用典型值或波动率公式捏造假数据
  */
 export function resolveStockVolumeData(
   ticker: string,
@@ -733,45 +736,23 @@ export function resolveStockVolumeData(
   let rvol: number | null = null;
   if (rawRvolInput !== null && rawRvolInput !== undefined && String(rawRvolInput).trim() !== "") {
     const parsed = parseRvol(rawRvolInput);
-    if (!isNaN(parsed) && parsed > 0) {
+    if (typeof parsed === "number" && !isNaN(parsed) && parsed > 0) {
       rvol = parsed;
     }
   }
 
-  // 3. 若无明确 RVOL（或为 null/undefined），优先对齐该标的权威 typicalRvol
-  if (rvol === null || rvol === undefined) {
-    if (benchmark.typicalRvol && benchmark.typicalRvol > 0) {
-      rvol = benchmark.typicalRvol;
-    } else if (changePercent !== undefined && changePercent !== null) {
-      // 结合当日涨跌幅推导合理活跃量能（波动越大量能越放大，避免千篇一律的 1.0x）
-      const absChange = Math.abs(changePercent);
-      if (absChange >= 2.0) {
-        rvol = Number((1.2 + Math.min(1.2, absChange * 0.15)).toFixed(2));
-      } else if (absChange >= 0.8) {
-        rvol = Number((1.05 + absChange * 0.1).toFixed(2));
-      } else {
-        rvol = 0.98;
-      }
-    } else {
-      rvol = 1.15;
-    }
-  }
+  // 3. 严格禁止伪造！若无明确实测 RVOL，严格保持 null，绝不使用 typicalRvol 或涨跌幅公式推算！
+  const avgVol = rawAvgVolInput && rawAvgVolInput > 0 ? Math.round(rawAvgVolInput) : (benchmark.avgVolume3Month || undefined);
+  const todayVol = rawTodayVolInput && rawTodayVolInput > 0 ? Math.round(rawTodayVolInput) : undefined;
 
-  const avgVol = rawAvgVolInput && rawAvgVolInput > 0 ? Math.round(rawAvgVolInput) : benchmark.avgVolume3Month;
-  const todayVol = rawTodayVolInput && rawTodayVolInput > 0
-    ? Math.round(rawTodayVolInput)
-    : (benchmark.typicalTodayVolume && benchmark.typicalTodayVolume > 0
-        ? benchmark.typicalTodayVolume
-        : Math.round(avgVol * rvol));
-
-  // 若使用权威真实日成交量，重新校验 RVOL 精确度
-  const finalRvol = (rawTodayVolInput || benchmark.typicalTodayVolume) && avgVol > 0
-    ? Number((todayVol / avgVol).toFixed(2))
-    : Number(rvol.toFixed(2));
+  // 若今日量和历史均量均真实有效且 rvol 缺失，可真实计算
+  const finalRvol = (rvol !== null && rvol > 0)
+    ? Number(rvol.toFixed(2))
+    : (todayVol && avgVol && todayVol > 0 && avgVol > 0 ? Number((todayVol / avgVol).toFixed(2)) : null);
 
   let turnoverRate: number | undefined;
   let turnoverRateStr: string | undefined;
-  if (sharesOutstanding && sharesOutstanding > 0 && todayVol > 0) {
+  if (sharesOutstanding && sharesOutstanding > 0 && todayVol && todayVol > 0) {
     const rate = (todayVol / sharesOutstanding) * 100;
     turnoverRate = Number(rate.toFixed(2));
     turnoverRateStr = `${rate.toFixed(2)}%`;
@@ -789,7 +770,7 @@ export function resolveStockVolumeData(
 }
 
 export interface VolumeAnalysis {
-  rvol: number;
+  rvol: number | null;
   rvolStr: string;
   isExpansion: boolean;     // 放量 (RVOL >= 1.05)
   isContraction: boolean;   // 缩量 (RVOL <= 0.95)
@@ -838,8 +819,47 @@ export function analyzeVolume(
   let rvol = parseRvol(rvolInput);
 
   // If todayVol and avgVol are provided, derive precise rvol
-  if (todayVol && avgVol && avgVol > 0) {
+  if (todayVol && avgVol && avgVol > 0 && todayVol > 0) {
     rvol = Number((todayVol / avgVol).toFixed(2));
+  }
+
+  // 计算换手率
+  let turnoverRate: number | undefined;
+  let turnoverRateStr: string | undefined;
+  let shares: number | undefined;
+  if (typeof tickerOrShares === "number" && tickerOrShares > 0) {
+    shares = tickerOrShares;
+  } else if (typeof tickerOrShares === "string" && tickerOrShares) {
+    const benchmark = getStockBenchmark(tickerOrShares);
+    shares = benchmark.sharesOutstanding;
+  }
+
+  if (todayVol && todayVol > 0 && shares && shares > 0) {
+    const rate = (todayVol / shares) * 100;
+    turnoverRate = Number(rate.toFixed(2));
+    turnoverRateStr = `${rate.toFixed(2)}%`;
+  }
+
+  // 若量比缺失或无效，严格返回空状态诊断，绝不伪造
+  if (rvol === null || rvol <= 0) {
+    return {
+      rvol: null,
+      rvolStr: "暂无",
+      isExpansion: false,
+      isContraction: false,
+      isNeutral: false,
+      deltaPercent: 0,
+      deltaPercentStr: "--",
+      badgeLabel: "量比缺失",
+      badgeVariant: "neutral",
+      interpretation: "当日成交量或量比数据缺失，未生成量能判断。",
+      todayVol: (todayVol && todayVol > 0) ? todayVol : undefined,
+      avgVol: (avgVol && avgVol > 0) ? avgVol : undefined,
+      todayVolumeFormatted: (todayVol && todayVol > 0) ? formatVolumeNumber(todayVol, volumeUnit) : undefined,
+      avgVolumeFormatted: (avgVol && avgVol > 0) ? formatVolumeNumber(avgVol, volumeUnit) : undefined,
+      turnoverRate,
+      turnoverRateStr,
+    };
   }
 
   // Calculate percentage vs average (rvol 1.14 => +14%, rvol 0.72 => -28%)
@@ -862,23 +882,6 @@ export function analyzeVolume(
   } else {
     badgeLabel = `平量 ${rvol.toFixed(2)}x`;
     badgeVariant = 'neutral';
-  }
-
-  // 计算换手率
-  let turnoverRate: number | undefined;
-  let turnoverRateStr: string | undefined;
-  let shares: number | undefined;
-  if (typeof tickerOrShares === "number" && tickerOrShares > 0) {
-    shares = tickerOrShares;
-  } else if (typeof tickerOrShares === "string" && tickerOrShares) {
-    const benchmark = getStockBenchmark(tickerOrShares);
-    shares = benchmark.sharesOutstanding;
-  }
-
-  if (todayVol && todayVol > 0 && shares && shares > 0) {
-    const rate = (todayVol / shares) * 100;
-    turnoverRate = Number(rate.toFixed(2));
-    turnoverRateStr = `${rate.toFixed(2)}%`;
   }
 
   // Generate trading interpretation based on price direction & volume behavior
