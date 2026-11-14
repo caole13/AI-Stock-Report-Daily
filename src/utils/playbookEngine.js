@@ -29,24 +29,42 @@ export const PLAYBOOK_NAME_MAP = {
 
 /**
  * 测算严格的 30 个交易日量比 (30-day RVOL)
- * 严格口径：必须拥有至少 30 个完整历史日线基准（不含当日），且当日成交量与 30 日历史均量均大于 0；
- * 历史基准不足 30 天时严格返回 null，绝不使用更短周期冒充 30 日量比，绝不把当日成交量混入历史均量。
+ * 严格口径：
+ * 1. 当日成交量 todayVol 必须为有效正数；若当日成交量缺失 (null/undefined/<=0)，严格返回 null；
+ * 2. 历史成交量数组 histVolumes 必须拥有至少 30 个有效历史交易日（严格排除当日）；若不足 30 天，严格返回 null；
+ * 3. 绝不使用前日成交量冒充当日成交量，绝不把当日成交量计入 30 日历史均量。
+ *
+ * 支持两种调用形态：
+ * - calculate30DayRvol(histVolumes, todayVol) -> 显式分离历史与当日（推荐，避免日期错位）
+ * - calculate30DayRvol(volumesIncludingToday) -> 单参数包含今日（自动取最后一条作为当日，要求 len >= 31）
  */
-export function calculate30DayRvol(volumes, lastVol) {
-  if (!Array.isArray(volumes) || typeof lastVol !== "number" || lastVol <= 0) {
+export function calculate30DayRvol(histVolumesOrAll, todayVol) {
+  let histVolumes = histVolumesOrAll;
+  let today = todayVol;
+
+  if (arguments.length === 1 && Array.isArray(histVolumesOrAll)) {
+    if (histVolumesOrAll.length < 31) return null;
+    today = histVolumesOrAll[histVolumesOrAll.length - 1];
+    histVolumes = histVolumesOrAll.slice(0, -1);
+  }
+
+  if (typeof today !== "number" || isNaN(today) || today <= 0) {
     return null;
   }
-  // volumes 包含今日时，至少需 31 条（前 30 条历史 + 1 条今日）
-  if (volumes.length < 31) {
+  if (!Array.isArray(histVolumes)) {
     return null;
   }
-  const histVolumes = volumes.slice(0, -1); // 严格排除当日
-  const window30 = histVolumes.slice(-30); // 严格取当日前 30 个交易日
+
+  const validHist = histVolumes.filter(v => typeof v === "number" && !isNaN(v) && v > 0);
+  if (validHist.length < 30) {
+    return null;
+  }
+  const window30 = validHist.slice(-30);
   const avgVol30 = window30.reduce((a, b) => a + b, 0) / 30;
   if (avgVol30 <= 0) {
     return null;
   }
-  return Number((lastVol / avgVol30).toFixed(2));
+  return Number((today / avgVol30).toFixed(2));
 }
 
 /**
@@ -54,7 +72,7 @@ export function calculate30DayRvol(volumes, lastVol) {
  * 仅对具备实测 30 天 RVOL 且满足 EMA 多头排列 (EMA21 > EMA55 且现价在 EMA55 上方) 的标的开放
  * 缺值或无匹配时严格返回空数组 []，绝不填充假数据
  */
-export function derivePlaybookCandidates(options) {
+export function derivePlaybookCandidates(options = {}) {
   const { tech = {}, priceMap = {}, rvolMap = {}, nameMap = {} } = options;
   const candidates = [];
 
@@ -63,7 +81,7 @@ export function derivePlaybookCandidates(options) {
     const curPrice = priceMap[ticker];
     const rvol = rvolMap[ticker];
 
-    // 严谨校验：必须有价格、EMA 均线，且必须有实测数值的 30 天 RVOL！
+    // 严谨校验：必须有现价、EMA 均线，且必须有实测数值的 30 天 RVOL！
     if (
       tData &&
       typeof curPrice === "number" &&

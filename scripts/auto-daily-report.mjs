@@ -197,37 +197,81 @@ function fetchTickerData(ticker, retryCount = 2) {
 
             const meta = result.meta || {};
             const quote = result.indicators?.quote?.[0] || {};
+            const timestamps = result.timestamp || [];
             const rawCloses = quote.close || [];
             const rawVolumes = quote.volume || [];
-            const closes = rawCloses.filter(c => c !== null && !isNaN(c));
-            const volumes = rawVolumes.filter(v => v !== null && !isNaN(v));
 
-            const price = meta.regularMarketPrice ?? (closes.length > 0 ? closes[closes.length - 1] : 0);
+            // 严谨确定最新柱线 (当日/最近交易日) 的原始对齐索引，防止因全局 filter(null) 导致日期错位与伪造当日量
+            const barCount = Math.min(
+              timestamps.length > 0 ? timestamps.length : Infinity,
+              rawCloses.length > 0 ? rawCloses.length : Infinity,
+              rawVolumes.length > 0 ? rawVolumes.length : Infinity
+            );
+            const hasBars = barCount > 0 && barCount !== Infinity;
+            const lastIdx = hasBars ? barCount - 1 : -1;
 
-            // 涨跌幅计算修正：严禁使用 1y chart 范围下的 chartPreviousClose（那是 1 年前的价格！）
-            // 优先直接使用 Yahoo Finance 官方计算的 regularMarketChangePercent，其次取最后两根日线收盘价对比
+            // 1. 确定当日成交量：优先使用 meta.regularMarketVolume，其次取原始最后一根柱线 rawVolumes[lastIdx]
+            // 若当日成交量为 null/缺失/<=0，严格判定为 null，绝不回退取昨日成交量冒充今日！
+            let todayVol = null;
+            if (typeof meta.regularMarketVolume === "number" && !isNaN(meta.regularMarketVolume) && meta.regularMarketVolume > 0) {
+              todayVol = meta.regularMarketVolume;
+            } else if (hasBars) {
+              const rawLastVol = rawVolumes[lastIdx];
+              if (typeof rawLastVol === "number" && !isNaN(rawLastVol) && rawLastVol > 0) {
+                todayVol = rawLastVol;
+              }
+            }
+
+            // 2. 确定当日最新价：优先使用 meta.regularMarketPrice，其次取原始最后一根柱线 rawCloses[lastIdx]
+            let currentPrice = null;
+            if (typeof meta.regularMarketPrice === "number" && !isNaN(meta.regularMarketPrice)) {
+              currentPrice = meta.regularMarketPrice;
+            } else if (hasBars) {
+              const rawLastClose = rawCloses[lastIdx];
+              if (typeof rawLastClose === "number" && !isNaN(rawLastClose)) {
+                currentPrice = rawLastClose;
+              }
+            }
+
+            // 3. 提取当日前（严格不含当日）的历史交易日序列，并过滤掉历史中的异常空值
+            const histRawCloses = hasBars ? rawCloses.slice(0, lastIdx) : [];
+            const histRawVolumes = hasBars ? rawVolumes.slice(0, lastIdx) : [];
+            const histCloses = histRawCloses.filter(c => typeof c === "number" && !isNaN(c) && c > 0);
+            const histVolumes = histRawVolumes.filter(v => typeof v === "number" && !isNaN(v) && v > 0);
+
+            // 4. 测算 30 日量比 RVOL：传入 (历史成交量数组, 当日成交量)
+            // 当日成交量缺失 (null) 或历史有效交易日不足 30 天时，calculate30DayRvol 严格返回 null
+            const rvol = calculate30DayRvol(histVolumes, todayVol);
+
+            // 5. 涨跌幅与昨收计算：严禁使用 1y chart 范围下的 chartPreviousClose（那是 1 年前的价格！）
+            // 优先直接使用 Yahoo Finance 官方计算的 regularMarketChangePercent，其次对比当日现价与上一交易日真实收盘价
             let changePctNum = 0;
+            const prevCloseFromHist = histCloses.length > 0 ? histCloses[histCloses.length - 1] : null;
+
             if (typeof meta.regularMarketChangePercent === "number" && !isNaN(meta.regularMarketChangePercent)) {
               changePctNum = meta.regularMarketChangePercent;
-            } else if (closes.length >= 2) {
-              const lastClose = closes[closes.length - 1];
-              const prevClose = closes[closes.length - 2];
-              changePctNum = prevClose > 0 ? ((lastClose - prevClose) / prevClose) * 100 : 0;
+            } else if (typeof currentPrice === "number" && typeof prevCloseFromHist === "number" && prevCloseFromHist > 0) {
+              changePctNum = ((currentPrice - prevCloseFromHist) / prevCloseFromHist) * 100;
             }
 
             const changePct = (changePctNum > 0 ? "+" : "") + changePctNum.toFixed(2) + "%";
-            const prevClose = changePctNum !== 0 ? Number((price / (1 + changePctNum / 100)).toFixed(price < 10 ? 3 : 2)) : price;
+            const price = typeof currentPrice === "number" ? currentPrice : (prevCloseFromHist ?? 0);
+            const prevClose = prevCloseFromHist ?? (changePctNum !== 0 && typeof currentPrice === "number" ? Number((currentPrice / (1 + changePctNum / 100)).toFixed(currentPrice < 10 ? 3 : 2)) : price);
 
-            // RVOL 测算：严格调用 calculate30DayRvol，要求当日前至少 30 个完整历史日线基准 (排除当日且基准不足时严格返回 null)
-            const lastVol = meta.regularMarketVolume ?? (volumes.length > 0 ? volumes[volumes.length - 1] : 0);
-            const rvol = calculate30DayRvol(volumes, lastVol);
-
-            const technicals = {
-              ema21: calcEMA(closes, 21),
-              ema55: calcEMA(closes, 55),
-              ema144: calcEMA(closes, 144),
-              ma50: calcSMA(closes, 50),
-              ma200: calcSMA(closes, 200)
+            // 6. 均线计算：若当日价格有效，则严格以 [历史有效收盘价, 当日最新价] 为基准；若当日无价则仅基于历史收盘价
+            const closesForTech = typeof currentPrice === "number" ? [...histCloses, currentPrice] : histCloses;
+            const technicals = closesForTech.length > 0 ? {
+              ema21: calcEMA(closesForTech, 21),
+              ema55: calcEMA(closesForTech, 55),
+              ema144: calcEMA(closesForTech, 144),
+              ma50: calcSMA(closesForTech, 50),
+              ma200: calcSMA(closesForTech, 200)
+            } : {
+              ema21: null,
+              ema55: null,
+              ema144: null,
+              ma50: null,
+              ma200: null
             };
 
             resolve({
@@ -238,7 +282,7 @@ function fetchTickerData(ticker, retryCount = 2) {
               changePct,
               changePercent: changePctNum,
               trend: changePctNum >= 0 ? "up" : "down",
-              volume: lastVol,
+              volume: todayVol,
               rvol,
               technicals
             });
