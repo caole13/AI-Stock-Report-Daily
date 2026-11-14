@@ -198,6 +198,9 @@ export const DailyActionPlaybook: React.FC<DailyActionPlaybookProps> = ({
                           <span className="text-xs text-slate-300 font-sans font-medium">
                             {c.name}
                           </span>
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-900 text-slate-400 border border-slate-800">
+                            行情基准: {data.date || data.displayDate || "当日"}
+                          </span>
                         </div>
 
                         <div className="flex items-center gap-1.5">
