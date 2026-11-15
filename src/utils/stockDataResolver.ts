@@ -1,11 +1,12 @@
 import { getStockBenchmark, resolveStockVolumeData, analyzeVolume } from "./volumeHelper";
 
-function parseChangePct(val: any): number {
-  if (typeof val === "number") return val;
-  if (!val) return 0;
+function parseChangePct(val: any): number | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "number") return isNaN(val) ? null : val;
   const cleaned = String(val).replace("%", "").replace("+", "").trim();
+  if (!cleaned) return null;
   const num = parseFloat(cleaned);
-  return isNaN(num) ? 0 : num;
+  return isNaN(num) ? null : num;
 }
 
 export interface ResolvedStockInfo {
@@ -14,7 +15,7 @@ export interface ResolvedStockInfo {
   sector: string;
   price: number | null;
   displayPrice: string;
-  changePercent: number;
+  changePercent: number | null;
   changePct: string;
   open: number | null;
   high: number | null;
@@ -119,22 +120,22 @@ export function resolveUnifiedStockData(
 
   // 3. Resolve Change Percent: Prioritize report's recorded change percentage
   const rawChange =
-    rawStock?.changePercent ??
-    moverItem?.changePercent ??
-    foundLeader?.changePercent ??
-    foundMacro?.changePercent ??
+    (rawStock?.changePercent !== undefined && rawStock.changePercent !== null ? rawStock.changePercent : null) ??
+    (moverItem?.changePercent !== undefined && moverItem.changePercent !== null ? moverItem.changePercent : null) ??
+    (foundLeader?.changePercent !== undefined && foundLeader.changePercent !== null ? foundLeader.changePercent : null) ??
+    (foundMacro?.changePercent !== undefined && foundMacro.changePercent !== null ? foundMacro.changePercent : null) ??
     (rawStock?.changePct ? parseChangePct(rawStock.changePct) : null) ??
     (moverItem?.changePct ? parseChangePct(moverItem.changePct) : null) ??
     (foundLeader?.changePct ? parseChangePct(foundLeader.changePct) : null) ??
     (foundMacro?.changePct ? parseChangePct(foundMacro.changePct) : null) ??
-    liveQuote?.changePercent ??
+    (liveQuote?.changePercent !== undefined && liveQuote.changePercent !== null ? liveQuote.changePercent : null) ??
     (liveQuote?.changePct ? parseChangePct(liveQuote.changePct) : null) ??
-    0;
+    null;
 
-  const changePercent = parseChangePct(rawChange);
-  const isPos = changePercent > 0;
-  const isNeg = changePercent < 0;
-  const changePct = `${isPos ? "+" : ""}${changePercent.toFixed(2)}%`;
+  const changePercent: number | null = rawChange != null ? parseChangePct(rawChange) : null;
+  const isPos = changePercent != null && changePercent > 0;
+  const isNeg = changePercent != null && changePercent < 0;
+  const changePct = changePercent != null ? `${isPos ? "+" : ""}${changePercent.toFixed(2)}%` : "暂无涨跌幅";
 
   // 4. Resolve OHLC (严格以真实数据为准，缺失时严格为 null，绝不伪造)
   const open =

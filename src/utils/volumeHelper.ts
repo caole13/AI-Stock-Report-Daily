@@ -319,12 +319,13 @@ export function getYahooFinanceUrl(ticker: string): string {
   return `https://finance.yahoo.com/quote/${encodeURIComponent(clean)}/`;
 }
 
-export function parseChangePct(str?: string | number | null): number {
-  if (typeof str === 'number') return isNaN(str) ? 0 : str;
-  if (!str) return 0;
+export function parseChangePct(str?: string | number | null): number | null {
+  if (str === null || str === undefined) return null;
+  if (typeof str === 'number') return isNaN(str) ? null : str;
   const cleaned = String(str).replace('%', '').replace('+', '').trim();
+  if (!cleaned) return null;
   const val = parseFloat(cleaned);
-  return isNaN(val) ? 0 : (String(str).includes('-') ? -Math.abs(val) : val);
+  return isNaN(val) ? null : (String(str).includes('-') ? -Math.abs(val) : val);
 }
 
 export function parseRvol(rvol?: number | string | null): number | null {

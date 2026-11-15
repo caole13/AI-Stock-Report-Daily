@@ -97,8 +97,12 @@ ${(() => {
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 ${priceActionSignals
   .map(
-    (s) =>
-      `| **${s.ticker}** | ${s.name} | $${(s.price ?? 0).toFixed(2)} | ${s.ema1hTrend === "bullish" ? "🟢 多头排列" : s.ema1hTrend === "bearish" ? "🔴 空头排列" : "🟡 震荡缠绕"} | ${s?.pinBar15m?.detected ? `🔨 ${s.pinBar15m.ratioText}` : "➖ 无"} | $${(s?.pinBar15m?.suggestedStopLoss ?? 0).toFixed(2)} | $${(s?.pinBar15m?.targetPrice1_5 ?? 0).toFixed(2)} | \`${s?.pinBar15m?.status || "观察"}\` |`
+    (s) => {
+      const priceStr = s.price != null && s.price > 0 ? `$${s.price.toFixed(2)}` : "—";
+      const stopStr = s?.pinBar15m?.suggestedStopLoss != null && s.pinBar15m.suggestedStopLoss > 0 ? `$${s.pinBar15m.suggestedStopLoss.toFixed(2)}` : "—";
+      const targetStr = s?.pinBar15m?.targetPrice1_5 != null && s.pinBar15m.targetPrice1_5 > 0 ? `$${s.pinBar15m.targetPrice1_5.toFixed(2)}` : "—";
+      return `| **${s.ticker}** | ${s.name} | ${priceStr} | ${s.ema1hTrend === "bullish" ? "🟢 多头排列" : s.ema1hTrend === "bearish" ? "🔴 空头排列" : "🟡 震荡缠绕"} | ${s?.pinBar15m?.detected ? `🔨 ${s.pinBar15m.ratioText}` : "➖ 无"} | ${stopStr} | ${targetStr} | \`${s?.pinBar15m?.status || "观察"}\` |`;
+    }
   )
   .join("\n")}
 
@@ -143,11 +147,15 @@ ${sectors
   .map((sec: any) => {
     const leaders = (sec.leaders || [])
       .map(
-        (l: any) =>
-          `  - **${l.ticker}** (${l.price ? `$${l.price.toFixed(2)}` : ""}, \`${l.changePct || (l.changePercent >= 0 ? "+" : "") + l.changePercent + "%"}\`): ${l.reason || l.catalyst || "板块资金合力"}`
+        (l: any) => {
+          const priceStr = l.price != null && l.price > 0 ? `$${Number(l.price).toFixed(2)}` : "暂无报价";
+          const changeStr = l.changePct || (l.changePercent != null ? `${l.changePercent >= 0 ? "+" : ""}${Number(l.changePercent).toFixed(2)}%` : "暂无涨跌幅");
+          return `  - **${l.ticker}** (${priceStr}, \`${changeStr}\`): ${l.reason || l.catalyst || "板块资金合力"}`;
+        }
       )
       .join("\n");
-    return `### ${sec.name || sec.sectorName} (${sec.etf || ""}) | 涨跌: ${sec.avgChangePercent !== undefined ? `${sec.avgChangePercent >= 0 ? "+" : ""}${sec.avgChangePercent}%` : "0.00%"}
+    const avgChangeStr = sec.avgChangePercent != null ? `${sec.avgChangePercent >= 0 ? "+" : ""}${sec.avgChangePercent}%` : "暂无数据";
+    return `### ${sec.name || sec.sectorName} (${sec.etf || ""}) | 涨跌: ${avgChangeStr}
 ${sec.thesis ? `*逻辑*: ${sec.thesis}\n` : ""}
 ${leaders}`;
   })
@@ -159,7 +167,10 @@ ${leaders}`;
 ${movers
   .slice(0, 6)
   .map((m: any) => {
-    return `- **${m.ticker}** (${m.name}) | 现价: $${typeof m.price === "number" ? m.price.toFixed(2) : m.price} | 涨跌: \`${m.changePct || (m.changePercent >= 0 ? "+" : "") + m.changePercent + "%"}\` | RVOL: **${m.rvol}**
+    const priceStr = m.price != null && m.price > 0 ? `$${Number(m.price).toFixed(2)}` : "暂无报价";
+    const changeStr = m.changePct || (m.changePercent != null ? `${m.changePercent >= 0 ? "+" : ""}${Number(m.changePercent).toFixed(2)}%` : "暂无涨跌幅");
+    const rvolStr = m.rvol != null ? m.rvol : "量比缺失";
+    return `- **${m.ticker}** (${m.name}) | 现价: ${priceStr} | 涨跌: \`${changeStr}\` | RVOL: **${rvolStr}**
   - **核心催化归因**: ${m.catalyst || m.newsAttribution || "资金放量主升"}
   - **失效止损参考**: \`${m.invalidationLevel || "跌破入场K线低点"}\``;
   })

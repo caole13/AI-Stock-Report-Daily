@@ -35,11 +35,11 @@ export interface MarketQuote {
   symbol: string;
   mappedSymbol: string;
   name: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  changePctFormatted: string;
-  prevClose: number;
+  price: number | null;
+  change: number | null;
+  changePercent: number | null;
+  changePctFormatted: string | null;
+  prevClose: number | null;
   open: number | null;
   dayHigh: number | null;
   dayLow: number | null;
@@ -75,9 +75,9 @@ export function resolveSymbol(symbol: string): string {
 /**
  * 校验清洗原生 Yahoo 行情成交量数据，严格禁止任何乘数放大或人工估算
  */
-function calibrateVolumeData(symbol: string, mapped: string, rawVolume: number, rawAvgVolume: number, changePercent: number) {
-  const volume: number | null = rawVolume > 0 ? rawVolume : null;
-  const avgVolume: number | null = rawAvgVolume > 0 ? rawAvgVolume : null;
+function calibrateVolumeData(symbol: string, mapped: string, rawVolume?: number | null, rawAvgVolume?: number | null, changePercent?: number | null) {
+  const volume: number | null = rawVolume && rawVolume > 0 ? rawVolume : null;
+  const avgVolume: number | null = rawAvgVolume && rawAvgVolume > 0 ? rawAvgVolume : null;
 
   const rvol = (volume && avgVolume && avgVolume > 0 && volume > 0)
     ? Number((volume / avgVolume).toFixed(2))
@@ -101,22 +101,28 @@ export async function getQuote(symbol: string, forceRefresh = false): Promise<Ma
     const raw: any = await yf.quote(mapped);
     if (!raw) return null;
 
-    const price = raw.regularMarketPrice ?? raw.postMarketPrice ?? 0;
-    const change = raw.regularMarketChange ?? 0;
-    const changePercent = raw.regularMarketChangePercent ?? 0;
-    const rawVolume = raw.regularMarketVolume ?? 0;
-    const rawAvgVolume = raw.averageDailyVolume3Month || raw.averageDailyVolume10Day || rawVolume || 1;
+    const rawPrice = raw.regularMarketPrice ?? raw.postMarketPrice;
+    const price: number | null = rawPrice != null && rawPrice > 0 ? Number(rawPrice.toFixed(rawPrice < 10 ? 3 : 2)) : null;
+    const change: number | null = raw.regularMarketChange != null ? Number(raw.regularMarketChange.toFixed(2)) : null;
+    const changePercent: number | null = raw.regularMarketChangePercent != null ? Number(raw.regularMarketChangePercent.toFixed(2)) : null;
+    const changePctFormatted: string | null = changePercent != null ? `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%` : null;
+    const rawVolume = raw.regularMarketVolume && raw.regularMarketVolume > 0 ? raw.regularMarketVolume : null;
+    const rawAvgVolume = (raw.averageDailyVolume3Month && raw.averageDailyVolume3Month > 0)
+      ? raw.averageDailyVolume3Month
+      : ((raw.averageDailyVolume10Day && raw.averageDailyVolume10Day > 0) ? raw.averageDailyVolume10Day : null);
     const { volume, avgVolume, rvol } = calibrateVolumeData(symbol, mapped, rawVolume, rawAvgVolume, changePercent);
 
     const quote: MarketQuote = {
       symbol,
       mappedSymbol: mapped,
       name: raw.shortName || raw.longName || symbol,
-      price: Number(price.toFixed(price < 10 ? 3 : 2)),
-      change: Number(change.toFixed(2)),
-      changePercent: Number(changePercent.toFixed(2)),
-      changePctFormatted: `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`,
-      prevClose: Number((raw.regularMarketPreviousClose ?? (price - change)).toFixed(2)),
+      price,
+      change,
+      changePercent,
+      changePctFormatted,
+      prevClose: raw.regularMarketPreviousClose != null
+        ? Number(raw.regularMarketPreviousClose.toFixed(2))
+        : (price != null && change != null ? Number((price - change).toFixed(2)) : null),
       open: raw.regularMarketOpen != null ? Number(raw.regularMarketOpen.toFixed(2)) : null,
       dayHigh: raw.regularMarketDayHigh != null ? Number(raw.regularMarketDayHigh.toFixed(2)) : null,
       dayLow: raw.regularMarketDayLow != null ? Number(raw.regularMarketDayLow.toFixed(2)) : null,
@@ -176,22 +182,28 @@ export async function getQuotes(symbols: string[], forceRefresh = false): Promis
       const mapped = resolveSymbol(s);
       const raw = lookupByMapped.get(mapped.toUpperCase());
       if (raw) {
-        const price = raw.regularMarketPrice ?? raw.postMarketPrice ?? 0;
-        const change = raw.regularMarketChange ?? 0;
-        const changePercent = raw.regularMarketChangePercent ?? 0;
-        const rawVolume = raw.regularMarketVolume ?? 0;
-        const rawAvgVolume = raw.averageDailyVolume3Month || raw.averageDailyVolume10Day || rawVolume || 1;
+        const rawPrice = raw.regularMarketPrice ?? raw.postMarketPrice;
+        const price: number | null = rawPrice != null && rawPrice > 0 ? Number(rawPrice.toFixed(rawPrice < 10 ? 3 : 2)) : null;
+        const change: number | null = raw.regularMarketChange != null ? Number(raw.regularMarketChange.toFixed(2)) : null;
+        const changePercent: number | null = raw.regularMarketChangePercent != null ? Number(raw.regularMarketChangePercent.toFixed(2)) : null;
+        const changePctFormatted: string | null = changePercent != null ? `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%` : null;
+        const rawVolume = raw.regularMarketVolume && raw.regularMarketVolume > 0 ? raw.regularMarketVolume : null;
+        const rawAvgVolume = (raw.averageDailyVolume3Month && raw.averageDailyVolume3Month > 0)
+          ? raw.averageDailyVolume3Month
+          : ((raw.averageDailyVolume10Day && raw.averageDailyVolume10Day > 0) ? raw.averageDailyVolume10Day : null);
         const { volume, avgVolume, rvol } = calibrateVolumeData(s, mapped, rawVolume, rawAvgVolume, changePercent);
 
         const quote: MarketQuote = {
           symbol: s,
           mappedSymbol: mapped,
           name: raw.shortName || raw.longName || s,
-          price: Number(price.toFixed(price < 10 ? 3 : 2)),
-          change: Number(change.toFixed(2)),
-          changePercent: Number(changePercent.toFixed(2)),
-          changePctFormatted: `${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%`,
-          prevClose: Number((raw.regularMarketPreviousClose ?? (price - change)).toFixed(2)),
+          price,
+          change,
+          changePercent,
+          changePctFormatted,
+          prevClose: raw.regularMarketPreviousClose != null
+            ? Number(raw.regularMarketPreviousClose.toFixed(2))
+            : (price != null && change != null ? Number((price - change).toFixed(2)) : null),
           open: raw.regularMarketOpen != null ? Number(raw.regularMarketOpen.toFixed(2)) : null,
           dayHigh: raw.regularMarketDayHigh != null ? Number(raw.regularMarketDayHigh.toFixed(2)) : null,
           dayLow: raw.regularMarketDayLow != null ? Number(raw.regularMarketDayLow.toFixed(2)) : null,
@@ -262,7 +274,7 @@ export async function searchTicker(query: string): Promise<string> {
   // Try direct quote first
   try {
     const directQuote = await getQuote(clean);
-    if (directQuote && directQuote.price > 0) {
+    if (directQuote && directQuote.price && directQuote.price > 0) {
       return directQuote.symbol || clean;
     }
   } catch {}

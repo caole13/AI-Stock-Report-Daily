@@ -104,7 +104,7 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
           const isExpanded = expandedTicker === stock.ticker;
           const isPositive = (stock.changePercent !== undefined && stock.changePercent !== null && stock.changePercent > 0) || stock.changePct?.startsWith("+");
           const isNegative = (stock.changePercent !== undefined && stock.changePercent !== null && stock.changePercent < 0) || stock.changePct?.startsWith("-");
-          const changeStr = stock.changePct || (stock.changePercent !== undefined && stock.changePercent !== null ? `${isPositive ? "+" : ""}${stock.changePercent.toFixed(2)}%` : "0.00%");
+          const changeStr = stock.changePct || (stock.changePercent !== undefined && stock.changePercent !== null ? `${isPositive ? "+" : ""}${stock.changePercent.toFixed(2)}%` : "暂无涨跌幅");
           const numChange = stock.changePercent !== undefined && stock.changePercent !== null
             ? stock.changePercent
             : (stock.changePct ? parseFloat(String(stock.changePct).replace("%", "")) : 0);

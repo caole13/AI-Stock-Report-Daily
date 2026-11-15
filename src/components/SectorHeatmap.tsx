@@ -99,9 +99,9 @@ export const SectorHeatmap: React.FC<SectorHeatmapProps> = ({
         {sectors.map((sec, secIdx) => {
           const secKey = sec.id || sec.etf || sec.name || `sec-${secIdx}`;
           const isExpanded = expandedSectors[secKey] !== false && (sec.id ? expandedSectors[sec.id] !== false : true);
-          const avgVal = sec.avgChangePercent ?? 0;
-          const isPositive = avgVal > 0;
-          const isNegative = avgVal < 0;
+          const avgVal = sec.avgChangePercent != null ? sec.avgChangePercent : null;
+          const isPositive = avgVal != null && avgVal > 0;
+          const isNegative = avgVal != null && avgVal < 0;
 
           // 过滤掉没有 ticker 或无效占位的数据
           const validLeaders = (sec.leaders || []).filter(
@@ -226,9 +226,9 @@ export const SectorHeatmap: React.FC<SectorHeatmapProps> = ({
                                   {leader.name}
                                 </span>
                               )}
-                              <span className="text-xs font-mono text-slate-300">
-                                {displayPrice != null ? `$${displayPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
-                              </span>
+                                <span className="text-xs font-mono text-slate-300">
+                                  {displayPrice != null ? `$${displayPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无报价</span>}
+                                </span>
 
                               {/* 换手率标签 */}
                               {volInfo.turnoverRateStr && (
@@ -285,7 +285,7 @@ export const SectorHeatmap: React.FC<SectorHeatmapProps> = ({
                               }`}
                             >
                               {isStockPos ? "+" : ""}
-                              {leader.changePct || (numChange ? `${numChange.toFixed(2)}%` : "--")}
+                              {leader.changePct || (numChange != null ? `${numChange >= 0 ? "+" : ""}${numChange.toFixed(2)}%` : "暂无涨跌幅")}
                             </span>
 
                             <div className="flex items-center gap-1.5">

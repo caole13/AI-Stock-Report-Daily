@@ -20,20 +20,36 @@ export const PromptPayloadModal: React.FC<PromptPayloadModalProps> = ({
 
   // Generate python raw data string representation
   const macroItems = (currentDayData.macro?.items || [])
-    .map((m) => `- ${m.name || m.ticker} (${m.ticker}): 当前值 ${(m.currentValue ?? m.price ?? 0).toFixed(2)}${m.unit ? " " + m.unit : ""}, 涨跌幅: ${m.changePct || ((m.changePercent ?? 0) >= 0 ? "+" : "") + (m.changePercent ?? 0).toFixed(2) + "%"}`)
+    .map((m) => {
+      const valStr = m.currentValue != null ? Number(m.currentValue).toFixed(2) : (m.price != null ? Number(m.price).toFixed(2) : "暂无报价");
+      const unitStr = m.unit ? " " + m.unit : "";
+      const change = m.changePct || (m.changePercent != null ? `${m.changePercent >= 0 ? "+" : ""}${Number(m.changePercent).toFixed(2)}%` : "暂无涨跌幅");
+      return `- ${m.name || m.ticker} (${m.ticker}): 当前值 ${valStr}${unitStr}, 涨跌幅: ${change}`;
+    })
     .join("\n");
 
   const sectorItems = (currentDayData.sectors || [])
     .map((s) => {
       const leaders = (s.leaders || [])
-        .map((l: any) => `  * ${l.ticker} (${l.name || l.ticker}): 现价 $${(l.price ?? 0).toFixed(2)}, 涨跌幅: ${l.changePct || ((l.changePercent ?? 0) >= 0 ? "+" : "") + (l.changePercent ?? 0).toFixed(2) + "%"}, RVOL: ${l.rvol || "1.0"}x [${l.reason || l.catalyst || "板块领头羊"}]`)
+        .map((l: any) => {
+          const priceStr = l.price != null && l.price > 0 ? `$${Number(l.price).toFixed(2)}` : "暂无报价";
+          const changeStr = l.changePct || (l.changePercent != null ? `${l.changePercent >= 0 ? "+" : ""}${Number(l.changePercent).toFixed(2)}%` : "暂无涨跌幅");
+          const rvolStr = l.rvol != null ? `${l.rvol}x` : "量比缺失";
+          return `  * ${l.ticker} (${l.name || l.ticker}): 现价 ${priceStr}, 涨跌幅: ${changeStr}, RVOL: ${rvolStr} [${l.reason || l.catalyst || "板块领头羊"}]`;
+        })
         .join("\n");
-      return `【${s.name || s.sectorName || "行业板块"}】 (均涨跌: ${s.avgChangePercent !== undefined ? `${s.avgChangePercent >= 0 ? "+" : ""}${s.avgChangePercent}%` : "0.00%"})\n${leaders}`;
+      const avgChangeStr = s.avgChangePercent != null ? `${s.avgChangePercent >= 0 ? "+" : ""}${s.avgChangePercent}%` : "暂无数据";
+      return `【${s.name || s.sectorName || "行业板块"}】 (均涨跌: ${avgChangeStr})\n${leaders}`;
     })
     .join("\n\n");
 
   const moverItems = (currentDayData.movers || [])
-    .map((m) => `- ${m.ticker} (${m.name || m.ticker}): $${(m.price ?? 0).toFixed(2)} (${m.changePct || ((m.changePercent ?? 0) >= 0 ? "+" : "") + (m.changePercent ?? 0).toFixed(2) + "%"}), RVOL: ${m.rvol || "1.0"}x\n  异动催化: ${m.catalyst || m.newsAttribution || "放量突破"}\n  技术位: 支撑 ${m.keyLevels?.support || "N/A"} | 阻力 ${m.keyLevels?.resistance || "N/A"} | 失效 ${m.invalidationLevel || m.keyLevels?.invalidation || "N/A"}`)
+    .map((m) => {
+      const priceStr = m.price != null && m.price > 0 ? `$${Number(m.price).toFixed(2)}` : "暂无报价";
+      const changeStr = m.changePct || (m.changePercent != null ? `${m.changePercent >= 0 ? "+" : ""}${Number(m.changePercent).toFixed(2)}%` : "暂无涨跌幅");
+      const rvolStr = m.rvol != null ? `${m.rvol}x` : "量比缺失";
+      return `- ${m.ticker} (${m.name || m.ticker}): ${priceStr} (${changeStr}), RVOL: ${rvolStr}\n  异动催化: ${m.catalyst || m.newsAttribution || "放量突破"}\n  技术位: 支撑 ${m.keyLevels?.support || "待确认"} | 阻力 ${m.keyLevels?.resistance || "待确认"} | 失效 ${m.invalidationLevel || m.keyLevels?.invalidation || "待确认"}`;
+    })
     .join("\n");
 
   const transmissionItems = (currentDayData.transmissions || (currentDayData as any).causalChains || [])
