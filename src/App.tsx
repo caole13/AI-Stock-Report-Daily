@@ -222,7 +222,7 @@ export function App() {
       newsAttribution: unified.newsAttribution,
       shortTermOutlook: unified.shortTermOutlook,
       midTermLogic: unified.midTermLogic,
-      invalidationLevel: unified.invalidationLevel,
+      invalidationLevel: unified.invalidationLevel && unified.invalidationLevel !== "null" ? unified.invalidationLevel : null,
       rvol: unified.rvol,
       volume: unified.volume,
       avgVolume: unified.avgVolume,

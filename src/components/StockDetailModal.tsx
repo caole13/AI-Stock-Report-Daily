@@ -170,7 +170,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const isNeg = resolvedChangePercent != null && resolvedChangePercent < 0;
   const changeDisplay = resolvedChangePercent != null
     ? `${isPos ? "+" : ""}${resolvedChangePercent.toFixed(2)}%`
-    : "null";
+    : "暂无涨跌幅";
 
   // Unit for macro vs stock
   const unit = isMacro
@@ -305,7 +305,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     }
   } else {
     if (resolvedChangePercent == null) {
-      intradayTrendDescription = "涨跌幅数据未提取 (null)，暂不进行趋势推演。";
+      intradayTrendDescription = "涨跌幅数据未提取，暂不进行趋势推演。";
     } else if (resolvedChangePercent >= 2.0) {
       intradayTrendDescription = `早盘小幅高开后，受到主力增量买盘积极抢筹推动，分时曲线呈现清晰的45度单边上行通道；盘中数次微幅回调均被迅速承接，全天收于日内最高位附近，多头进攻动能强劲。`;
     } else if (resolvedChangePercent > 0.3) {
@@ -348,15 +348,19 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
       ? "宏观利率走势与全球流动性再平衡决定大类资产长期中枢估值。"
       : "核心技术壁垒与行业赛道长期现金流创造能力为估值提供稳健安全边际。");
 
-  const invalidationVal =
+  const rawInvalidation =
     moverItem?.invalidationLevel ||
     moverItem?.keyLevels?.invalidation ||
-    stock?.invalidationLevel ||
-    (resolvedPrice != null
-      ? (isMacro
-          ? `${(resolvedPrice * (isPos ? 0.96 : 1.04)).toFixed(2)} ${unit}`
-          : `$${(resolvedPrice * (isPos ? 0.95 : 1.05)).toFixed(2)}`)
-      : "暂无");
+    stock?.invalidationLevel;
+
+  const invalidationVal =
+    rawInvalidation && rawInvalidation !== "null" && rawInvalidation !== "暂无"
+      ? rawInvalidation
+      : (resolvedPrice != null
+          ? (isMacro
+              ? `${(resolvedPrice * (isPos ? 0.96 : 1.04)).toFixed(2)} ${unit}`
+              : `$${(resolvedPrice * (isPos ? 0.95 : 1.05)).toFixed(2)}`)
+          : "暂无");
 
   return (
     <div

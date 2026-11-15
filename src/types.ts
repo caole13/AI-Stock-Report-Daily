@@ -66,9 +66,9 @@ export interface SectorCategory {
 }
 
 export interface KeyLevels {
-  support?: string;
-  resistance?: string;
-  invalidation: string;
+  support?: string | null;
+  resistance?: string | null;
+  invalidation: string | null;
 }
 
 export interface ActionPlaybookCandidate {
@@ -120,7 +120,7 @@ export interface MoverStockItem {
   sparkline?: number[];
   shortTermOutlook?: string;
   midTermLogic?: string;
-  invalidationLevel?: string;
+  invalidationLevel?: string | null;
   technicals?: {
     ema21?: number | null;
     ema55?: number | null;
@@ -378,7 +378,7 @@ export interface StockDetail {
   newsAttribution?: string;
   shortTermOutlook?: string;
   midTermLogic?: string;
-  invalidationLevel?: string;
+  invalidationLevel?: string | null;
   volume?: number;
   avgVolume?: number;
   rvol?: number | string;

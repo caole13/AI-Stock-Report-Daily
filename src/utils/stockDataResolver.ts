@@ -37,9 +37,9 @@ export interface ResolvedStockInfo {
   newsAttribution: string;
   shortTermOutlook: string;
   midTermLogic: string;
-  invalidationLevel: string;
-  support: string;
-  resistance: string;
+  invalidationLevel: string | null;
+  support: string | null;
+  resistance: string | null;
   intradayTrendDescription: string;
   driverSummary: string;
   technicals?: {
@@ -236,24 +236,26 @@ export function resolveUnifiedStockData(
     moverItem?.invalidationLevel ||
     moverItem?.keyLevels?.invalidation ||
     rawStock?.invalidationLevel ||
-    "null";
+    null;
 
   const support =
     moverItem?.keyLevels?.support ||
-    "null";
+    null;
 
   const resistance =
     moverItem?.keyLevels?.resistance ||
-    "null";
+    null;
 
   // 9. Intraday Trend Description
-  const amplitudeStr =
+  const amplitudeNum =
     high != null && low != null && low > 0
-      ? (((high - low) / low) * 100).toFixed(2)
-      : "null";
+      ? ((high - low) / low) * 100
+      : null;
 
   let intradayTrendDescription = "";
-  if (changePercent >= 2.0) {
+  if (changePercent == null) {
+    intradayTrendDescription = "涨跌幅数据未提取，暂不进行趋势推演。";
+  } else if (changePercent >= 2.0) {
     intradayTrendDescription = `早盘高开后增量资金抢筹，分时呈单边上行通道；全天收于日内最高位附近，多头动能强劲。`;
   } else if (changePercent > 0.3) {
     intradayTrendDescription = `开盘平稳，早盘在行业板块回暖带动下震荡推升；买方依托分时均线平稳防守，录得稳健正收益。`;
@@ -262,7 +264,7 @@ export function resolveUnifiedStockData(
   } else if (changePercent < -0.3) {
     intradayTrendDescription = `全天大部分时间在平盘线下沿进行弱势拉锯，抛盘力度温和，属于常态技术性震荡。`;
   } else {
-    intradayTrendDescription = `全天振幅受限 (${amplitudeStr}%)，价格围绕前日收盘价横盘蓄势，等待新的催化剂。`;
+    intradayTrendDescription = `全天振幅受限${amplitudeNum != null ? ` (${amplitudeNum.toFixed(2)}%)` : ""}，价格围绕前日收盘价横盘蓄势，等待新的催化剂。`;
   }
 
   return {
@@ -270,7 +272,7 @@ export function resolveUnifiedStockData(
     name,
     sector,
     price,
-    displayPrice: price != null ? `$${price.toFixed(2)}` : "null",
+    displayPrice: price != null ? `$${price.toFixed(2)}` : "暂无报价",
     changePercent,
     changePct,
     open,

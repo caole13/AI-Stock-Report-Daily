@@ -130,10 +130,13 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
           const newsText = stock.newsAttribution || stock.catalyst || (stock.news?.[0]?.title) || "";
           const shortOutlook = stock.shortTermOutlook || stock.outlook?.shortTermTrend || "";
           const midLogic = stock.midTermLogic || stock.outlook?.midTermLogic || "";
-          const invalidation =
+          const rawInvalidation =
             stock.invalidationLevel ||
-            stock.keyLevels?.invalidation ||
-            "暂无";
+            stock.keyLevels?.invalidation;
+          const invalidation =
+            rawInvalidation && rawInvalidation !== "null" && rawInvalidation !== "暂无"
+              ? rawInvalidation
+              : "暂无";
 
           const chartPoints = (stock.sparkline && stock.sparkline.length >= 4)
             ? stock.sparkline
