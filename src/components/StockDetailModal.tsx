@@ -69,18 +69,31 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
       return;
     }
     let isMounted = true;
-    fetch(`/api/market-quotes?symbols=${encodeURIComponent(targetTicker)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!isMounted) return;
-        const q = data?.quotes?.[upperTicker] || (Array.isArray(data?.quotes) ? data?.quotes[0] : null);
-        if (q && (q.price > 0 || q.volume > 0)) {
-          setLiveQuote(q);
-        }
-      })
-      .catch(() => {
-        // Fallback to report/passed data
-      });
+    let attempts = 0;
+    const fetchWithRetry = () => {
+      fetch(`/api/market-quotes?symbols=${encodeURIComponent(targetTicker)}`)
+        .then((res) => {
+          if (!res.ok) throw new Error("HTTP " + res.status);
+          return res.json();
+        })
+        .then((data) => {
+          if (!isMounted) return;
+          const q = data?.quotes?.[upperTicker] || (Array.isArray(data?.quotes) ? data?.quotes[0] : null);
+          if (q && (q.price > 0 || q.volume > 0)) {
+            setLiveQuote(q);
+          } else if (attempts < 1) {
+            attempts++;
+            setTimeout(fetchWithRetry, 500);
+          }
+        })
+        .catch(() => {
+          if (isMounted && attempts < 1) {
+            attempts++;
+            setTimeout(fetchWithRetry, 500);
+          }
+        });
+    };
+    fetchWithRetry();
     return () => {
       isMounted = false;
     };

@@ -58,13 +58,34 @@ export const onRequestGet: PagesFunction = async (context) => {
       const meta = data?.chart?.result?.[0]?.meta;
       if (!meta) return;
 
+      const quoteObj = data?.chart?.result?.[0]?.indicators?.quote?.[0] || {};
+      const rawOpens = quoteObj.open;
+      const rawHighs = quoteObj.high;
+      const rawLows = quoteObj.low;
+      const rawCloses = quoteObj.close;
+      const rawVolumes = quoteObj.volume;
+
+      const validCloses = Array.isArray(rawCloses)
+        ? rawCloses.filter((v: any) => typeof v === "number" && v > 0)
+        : [];
+      const currentClose = validCloses.slice(-1)[0] ?? null;
+      const truePrevClose = validCloses.length >= 2 ? validCloses.slice(-2)[0] : null;
+
       const price =
-        typeof meta.regularMarketPrice === "number" ? Number(meta.regularMarketPrice.toFixed(2)) : null;
+        typeof meta.regularMarketPrice === "number"
+          ? Number(meta.regularMarketPrice.toFixed(2))
+          : typeof currentClose === "number"
+          ? Number(currentClose.toFixed(2))
+          : null;
+
+      // Muse calibration: prevClose MUST be true previous trading day's close (倒数第二根日K), NOT 3 months ago chartPreviousClose!
       const prevClose =
-        typeof meta.chartPreviousClose === "number"
-          ? Number(meta.chartPreviousClose.toFixed(2))
+        typeof truePrevClose === "number"
+          ? Number(truePrevClose.toFixed(2))
           : typeof meta.previousClose === "number"
           ? Number(meta.previousClose.toFixed(2))
+          : typeof meta.chartPreviousClose === "number"
+          ? Number(meta.chartPreviousClose.toFixed(2))
           : null;
 
       let change: number | null = null;
@@ -73,12 +94,6 @@ export const onRequestGet: PagesFunction = async (context) => {
         change = Number((price - prevClose).toFixed(2));
         changePercent = Number((((price - prevClose) / prevClose) * 100).toFixed(2));
       }
-
-      const quoteObj = data?.chart?.result?.[0]?.indicators?.quote?.[0] || {};
-      const rawOpens = quoteObj.open;
-      const rawHighs = quoteObj.high;
-      const rawLows = quoteObj.low;
-      const rawVolumes = quoteObj.volume;
 
       const lastOpen = Array.isArray(rawOpens)
         ? rawOpens.filter((v: any) => typeof v === "number" && v > 0).slice(-1)[0]
