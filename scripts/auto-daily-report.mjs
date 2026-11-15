@@ -1008,14 +1008,12 @@ isFallback 必须填为 false。`,
     allocNote = "轻指数重个股，仓位控制在 5~6 成，重点捕捉均线多头排列且缩量回踩的关键支撑标的。";
   }
 
-  const spxP = macro.SPX?.price || 5870;
-  const qqqP = 495;
   const spxTech = technicalIndicators["SPX"] || technicalIndicators["SPY"] || {};
   const qqqTech = technicalIndicators["QQQ"] || {};
-  const spxSupportVal = spxTech.ema21 ? spxTech.ema21 : Math.round(spxP * 0.985);
-  const spxInvalVal = spxTech.ema55 ? spxTech.ema55 : Math.round(spxP * 0.975);
-  const qqqSupportVal = qqqTech.ema21 ? qqqTech.ema21 : 485;
-  const qqqInvalVal = qqqTech.ema55 ? qqqTech.ema55 : 478;
+  const spxKeySupport = spxTech.ema21 ? `${spxTech.ema21} 点 (EMA21/MA50 核心防守位)` : "待大盘均线数据确认";
+  const spxInvalidation = spxTech.ema55 ? `跌破 ${spxTech.ema55} 点 (确认多头结构失效，触发全面防守)` : "待大盘均线数据确认";
+  const qqqKeySupport = qqqTech.ema21 ? `$${qqqTech.ema21} (科技成长股关键心理承接区)` : "待大盘均线数据确认";
+  const qqqInvalidation = qqqTech.ema55 ? `跌破 $${qqqTech.ema55} (破位下行，需减持高 Beta 半导体与 AI 标的)` : "待大盘均线数据确认";
 
   // 提取价格、量比与名称映射表，调用统一的候选筛选引擎 (保证与网页/历史推算 100% 规则一致)
   const priceMap = {};
@@ -1042,10 +1040,10 @@ isFallback 必须填为 false。`,
       notes: allocNote
     },
     defenseLevels: {
-      spxKeySupport: `${spxSupportVal} 点 (EMA21/MA50 核心防守位)`,
-      spxInvalidation: `跌破 ${spxInvalVal} 点 (确认多头结构失效，触发全面防守)`,
-      qqqKeySupport: `$${qqqSupportVal} (科技成长股关键心理承接区)`,
-      qqqInvalidation: `跌破 $${qqqInvalVal} (破位下行，需减持高 Beta 半导体与 AI 标的)`
+      spxKeySupport,
+      spxInvalidation,
+      qqqKeySupport,
+      qqqInvalidation
     },
     bullScenario: "若大盘平开高走放量站稳核心支撑，维持既定配置，顺势向突破年线/颈线的强势顺周期及高股息品种调仓。",
     bearScenario: "若长端收益率急升或开盘跌破 SPX 核心防守线，不可盲目抄底，严格按 1:1.5 盈亏比执行防守止损，提升现金头寸等待企稳。",

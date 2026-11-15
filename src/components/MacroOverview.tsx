@@ -54,7 +54,7 @@ export const MacroOverview: React.FC<MacroOverviewProps> = ({
       trend: item.trend || (numChange > 0 ? "up" : numChange < 0 ? "down" : "neutral"),
       unit: item.unit || "",
       description: item.description || "",
-      sparkline: item.sparkline || [val * 0.99, val * 0.995, val * 1.002, val],
+      sparkline: item.sparkline || [],
     };
   });
 

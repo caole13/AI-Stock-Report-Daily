@@ -27,64 +27,67 @@ export function getPriceActionSignals(
     // 统一数据源：精确提取外部与详情弹窗同源的真实价格与指标
     const unified = resolveUnifiedStockData(ticker, null, currentDayData, liveQuotes);
 
-    const price = unified.price && unified.price > 0 ? unified.price : 100;
-    const changePercent = unified.changePercent ?? 0;
-    const volumeRatio = unified.rvol ? `${unified.rvol}x` : "1.12x";
+    const price = (typeof unified.price === "number" && unified.price > 0) ? unified.price : null;
+    const changePercent = typeof unified.changePercent === "number" ? unified.changePercent : null;
+    const volumeRatio = unified.rvol ? `${unified.rvol}x` : null;
 
-    // 技术均线系统计算 (优先从服务端真均线读取 EMA21 快线, EMA55 基准线, EMA144 大周期支撑)
-    const ema21 = unified.technicals?.ema21 ?? Number((price * (changePercent >= 0 ? 0.988 : 1.012)).toFixed(2));
-    const ema55 = unified.technicals?.ema55 ?? Number((price * (changePercent >= 0 ? 0.965 : 1.028)).toFixed(2));
-    const ema144 = unified.technicals?.ema144 ?? Number((price * (changePercent >= 0 ? 0.932 : 1.055)).toFixed(2));
+    // 技术均线系统计算 (严格从服务端真均线读取，缺失时严格为 null，绝不使用现价乘数伪造均线)
+    const ema21 = typeof unified.technicals?.ema21 === "number" ? unified.technicals.ema21 : null;
+    const ema55 = typeof unified.technicals?.ema55 === "number" ? unified.technicals.ema55 : null;
+    const ema144 = typeof unified.technicals?.ema144 === "number" ? unified.technicals.ema144 : null;
 
     const ema1hTrend: PriceActionSignal["ema1hTrend"] =
-      ema21 && ema55 && ema144
+      (typeof ema21 === "number" && typeof ema55 === "number" && typeof ema144 === "number")
         ? (ema21 > ema55 && ema55 > ema144
             ? "bullish"
             : ema21 < ema55 && ema55 < ema144
             ? "bearish"
             : "consolidation")
-        : (changePercent >= 0.3
-            ? "bullish"
-            : changePercent <= -1.2
-            ? "bearish"
-            : "consolidation");
+        : (changePercent !== null
+            ? (changePercent >= 0.3 ? "bullish" : changePercent <= -1.2 ? "bearish" : "consolidation")
+            : null);
 
-    // 基于 0 穿刺与日内高低点的结构性防守止损位
-    const lowAnchor = unified.low && unified.low > 0 ? unified.low : price * 0.968;
-    const highAnchor = unified.high && unified.high > 0 ? unified.high : price * 1.032;
+    // 基于 0 穿刺与日内真实高低点的结构性防守止损位，缺失时严格为 null
+    const lowAnchor = (typeof unified.low === "number" && unified.low > 0) ? unified.low : null;
+    const highAnchor = (typeof unified.high === "number" && unified.high > 0) ? unified.high : null;
 
     const suggestedStopLoss =
-      changePercent >= 0
-        ? Number(lowAnchor.toFixed(2))
-        : Number(highAnchor.toFixed(2));
+      changePercent !== null
+        ? (changePercent >= 0 ? lowAnchor : highAnchor)
+        : null;
 
     // 1:1.5 盈亏比目标位
     const targetPrice1_5 =
-      changePercent >= 0
-        ? Number((price + Math.abs(price - suggestedStopLoss) * 1.5).toFixed(2))
-        : Number((price - Math.abs(suggestedStopLoss - price) * 1.5).toFixed(2));
+      (typeof price === "number" && typeof suggestedStopLoss === "number" && changePercent !== null)
+        ? (changePercent >= 0
+            ? Number((price + Math.abs(price - suggestedStopLoss) * 1.5).toFixed(2))
+            : Number((price - Math.abs(suggestedStopLoss - price) * 1.5).toFixed(2)))
+        : null;
 
-    const potentialGainPct = Number(
-      (Math.abs((targetPrice1_5 - price) / price) * 100).toFixed(1)
-    );
-    const riskPct = Number(
-      (Math.abs((price - suggestedStopLoss) / price) * 100).toFixed(1)
-    );
+    const potentialGainPct =
+      (typeof price === "number" && typeof targetPrice1_5 === "number" && price > 0)
+        ? Number((Math.abs((targetPrice1_5 - price) / price) * 100).toFixed(1))
+        : null;
 
-    // 15分钟分时拒绝形态 (Pin Bar / Hammer / 结构企稳)
+    const riskPct =
+      (typeof price === "number" && typeof suggestedStopLoss === "number" && price > 0)
+        ? Number((Math.abs((price - suggestedStopLoss) / price) * 100).toFixed(1))
+        : null;
+
+    // 15分钟分时形态
     let pinBarDetected = false;
     let pinBarType: 'hammer' | 'shooting_star' | 'none' = 'none';
     let pinBarRatioText = "分时结构整固";
     let triggerTime = "分时均线防守";
     let pinBarStatus: '已触发' | '待突破确认' | '观察池中' = "观察池中";
 
-    if (changePercent >= 0.5) {
+    if (changePercent !== null && changePercent >= 0.5) {
       pinBarDetected = true;
       pinBarType = "hammer";
-      pinBarRatioText = "长下影 Pin Bar (下影 2.4×)";
+      pinBarRatioText = "长下影 Pin Bar (多头企稳)";
       triggerTime = "15m K线企稳回踩确认";
       pinBarStatus = "已触发";
-    } else if (changePercent <= -1.0) {
+    } else if (changePercent !== null && changePercent <= -1.0) {
       pinBarDetected = true;
       pinBarType = "shooting_star";
       pinBarRatioText = "上影倒锤形态 (压力测试)";
@@ -93,14 +96,16 @@ export function getPriceActionSignals(
     } else {
       pinBarDetected = false;
       pinBarType = "none";
-      pinBarRatioText = "EMA21 均线附着震荡";
+      pinBarRatioText = ema21 !== null ? "EMA21 均线附着震荡" : "结构整固";
       triggerTime = "多空平衡区间";
       pinBarStatus = "观察池中";
     }
 
     const keyNotes =
       unified.catalyst ||
-      `${name} 当前价格 $${price.toFixed(2)}，依托日内分时支撑位运行，关注 1:1.5 盈亏比目标位 $${targetPrice1_5.toFixed(2)}。`;
+      (price !== null && targetPrice1_5 !== null
+        ? `${name} 当前价格 $${price.toFixed(2)}，依托日内支撑位运行，关注 1:1.5 盈亏比目标位 $${targetPrice1_5.toFixed(2)}。`
+        : `${name} 暂无有效行情点位数据。`);
 
     return {
       ticker,
@@ -147,41 +152,53 @@ export function getBottomHuntSignals(
   return trackedTickers.map(({ ticker, name }) => {
     const unified = resolveUnifiedStockData(ticker, null, currentDayData, liveQuotes);
 
-    const price = unified.price && unified.price > 0 ? unified.price : 100;
-    const changePercent = unified.changePercent ?? 0;
+    const price = (typeof unified.price === "number" && unified.price > 0) ? unified.price : null;
+    const changePercent = typeof unified.changePercent === "number" ? unified.changePercent : null;
 
-    // MA200 年线基准测算 (优先从服务端真均线读取)
-    const ma200Price = unified.technicals?.ma200 ?? Number((price * (changePercent >= 0 ? 0.885 : 1.12)).toFixed(2));
-    const ma200Status: 'above' | 'below' = price >= ma200Price ? 'above' : 'below';
-    const diffPct = (((price - ma200Price) / ma200Price) * 100).toFixed(1);
-    const ma200Desc = `${price >= ma200Price ? '处于 MA200 上方' : '处于 MA200 下方'} (${diffPct.startsWith('-') ? '' : '+'}${diffPct}%) · 年线真实基准 $${ma200Price.toFixed(2)}`;
+    // MA200 年线基准测算 (严格从服务端真均线读取，缺失时严格为 null，绝不伪造)
+    const ma200Price = typeof unified.technicals?.ma200 === "number" ? unified.technicals.ma200 : null;
+    const ma200Status: 'above' | 'below' | null =
+      (typeof price === "number" && typeof ma200Price === "number")
+        ? (price >= ma200Price ? 'above' : 'below')
+        : null;
+    const diffPct =
+      (typeof price === "number" && typeof ma200Price === "number" && ma200Price > 0)
+        ? (((price - ma200Price) / ma200Price) * 100).toFixed(1)
+        : null;
+    const ma200Desc = (ma200Price !== null && price !== null && diffPct !== null)
+      ? `${price >= ma200Price ? '处于 MA200 上方' : '处于 MA200 下方'} (${diffPct.startsWith('-') ? '' : '+'}${diffPct}%) · 年线真实基准 $${ma200Price.toFixed(2)}`
+      : '年线 MA200 基准缺失';
 
-    // MACD 动能状态
-    const isBull = changePercent >= 0;
+    // MACD 动能状态：严格基于真实涨跌方向，绝不捏造假 hist 数值
+    const isBull = changePercent !== null ? changePercent >= 0 : true;
     const macdZeroState: BottomHuntSignal["macdZeroState"] = {
-      state: isBull ? "above_zero" : "below_zero",
-      description: isBull
-        ? "零轴上方多头红柱展开，量价共振加速"
-        : "水下绿柱动能收敛衰竭，酝酿二次金叉底背离",
-      macdHist: isBull ? 1.48 : -0.76,
-      signalType: isBull ? "零轴多头金叉放量" : "水下底背离反抽",
+      state: changePercent !== null ? (isBull ? "above_zero" : "below_zero") : null,
+      description: changePercent !== null
+        ? (isBull ? "零轴上方多头红柱展开，量价共振加速" : "水下绿柱动能收敛衰竭，酝酿二次金叉底背离")
+        : "动能指标待确认",
+      macdHist: null,
+      signalType: changePercent !== null ? (isBull ? "零轴多头金叉放量" : "水下底背离反抽") : "待确认",
     };
 
-    // 布林带与背离阶段
-    const bollingerLower = Number((price * 0.942).toFixed(2));
-    const bollingerMid = Number((price * 0.992).toFixed(2));
-    const bollingerUpper = Number((price * 1.045).toFixed(2));
+    // 布林带与背离阶段：不伪造 bollingerLower/Mid/Upper 乘数假数值
+    const bollingerLower = null;
+    const bollingerMid = null;
+    const bollingerUpper = null;
 
-    const phase = isBull ? "mid_band_bounce" : "second_bottom_divergence";
-    const badge = isBull
-      ? "第二次探底稳在布林带内 + MACD动能衰竭（发射子弹）"
-      : "逼近布林下轨支撑 · 处于超跌底背离观察窗口";
-    const action = isBull ? "发射子弹" : "缩口观望";
-    const actionLevel = isBull ? "success" : "warning";
+    const phase = changePercent !== null ? (isBull ? "mid_band_bounce" : "second_bottom_divergence") : null;
+    const badge = changePercent !== null
+      ? (isBull
+          ? "第二次探底稳在布林带内 + MACD动能衰竭（发射子弹）"
+          : "逼近布林下轨支撑 · 处于超跌底背离观察窗口")
+      : "结构待确认";
+    const action = changePercent !== null ? (isBull ? "发射子弹" : "缩口观望") : "缩口观望";
+    const actionLevel = changePercent !== null ? (isBull ? "success" : "warning") : "info";
 
     const notes =
       unified.catalyst ||
-      `${name} 当前运行于布林中轨附近，量能配合健康，大周期支撑线有效。`;
+      (price !== null
+        ? `${name} 当前运行于大周期支撑附近，密切跟踪流动性与量价结构。`
+        : `${name} 暂无行情数据。`);
 
     return {
       ticker,

@@ -92,11 +92,11 @@ export function resolveActionPlaybook(data: HistoricalDailyData | null | undefin
     allocNote = "轻指数重个股，仓位控制在 5~6 成，重点捕捉均线多头排列且缩量回踩的关键支撑标的。";
   }
 
-  // 2. 关键防守点位
-  const spxSupportVal = spxTech.ema21 ? spxTech.ema21 : Math.round(spxPrice * 0.985);
-  const spxInvalVal = spxTech.ema55 ? spxTech.ema55 : Math.round(spxPrice * 0.975);
-  const qqqSupportVal = qqqTech.ema21 ? qqqTech.ema21 : Number((qqqPrice * 0.982).toFixed(2));
-  const qqqInvalVal = qqqTech.ema55 ? qqqTech.ema55 : Number((qqqPrice * 0.972).toFixed(2));
+  // 2. 关键防守点位 (严格基于真实技术均线，缺失时提示待确认，严禁乘以百分比推算伪造)
+  const spxKeySupport = spxTech.ema21 ? `${spxTech.ema21} 点 (EMA21/MA50 核心防守位)` : "待大盘均线数据确认";
+  const spxInvalidation = spxTech.ema55 ? `跌破 ${spxTech.ema55} 点 (确认多头结构失效，触发全面防守)` : "待大盘均线数据确认";
+  const qqqKeySupport = qqqTech.ema21 ? `$${qqqTech.ema21} (科技成长股关键心理承接区)` : "待大盘均线数据确认";
+  const qqqInvalidation = qqqTech.ema55 ? `跌破 $${qqqTech.ema55} (破位下行，需减持高 Beta 半导体与 AI 标的)` : "待大盘均线数据确认";
 
   // 3. 动态提炼具备真实技术面与实测 30 日 RVOL 共振的行动候选标的 (共用统一筛选引擎)
   const candidates: ActionPlaybookCandidate[] = derivePlaybookCandidates({
@@ -114,10 +114,10 @@ export function resolveActionPlaybook(data: HistoricalDailyData | null | undefin
       notes: allocNote
     },
     defenseLevels: {
-      spxKeySupport: `${spxSupportVal} 点 (EMA21/MA50 核心防守位)`,
-      spxInvalidation: `跌破 ${spxInvalVal} 点 (确认多头结构失效，触发全面防守)`,
-      qqqKeySupport: `$${qqqSupportVal} (科技成长股关键心理承接区)`,
-      qqqInvalidation: `跌破 $${qqqInvalVal} (破位下行，需减持高 Beta 半导体与 AI 标的)`
+      spxKeySupport,
+      spxInvalidation,
+      qqqKeySupport,
+      qqqInvalidation
     },
     bullScenario: "若大盘平开高走放量站稳核心支撑，维持既定配置，顺势向突破年线/颈线的强势顺周期及高股息品种调仓。",
     bearScenario: "若长端收益率急升或开盘跌破 SPX 核心防守线，不可盲目抄底，严格按 1:1.5 盈亏比执行防守止损，提升现金头寸等待企稳。",

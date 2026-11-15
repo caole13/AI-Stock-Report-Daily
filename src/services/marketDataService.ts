@@ -43,9 +43,9 @@ export interface MarketQuote {
   open: number | null;
   dayHigh: number | null;
   dayLow: number | null;
-  volume: number;
-  avgVolume: number;
-  rvol: number;
+  volume: number | null;
+  avgVolume: number | null;
+  rvol: number | null;
   fiftyTwoWeekHigh: number | null;
   fiftyTwoWeekLow: number | null;
   fiftyDayAverage?: number | null;
@@ -77,30 +77,22 @@ export function resolveSymbol(symbol: string): string {
  * only tracks single-exchange partial volume (e.g. NYSE only for ^GSPC) vs composite average volume.
  */
 function calibrateVolumeData(symbol: string, mapped: string, rawVolume: number, rawAvgVolume: number, changePercent: number) {
-  let volume = rawVolume > 0 ? rawVolume : 0;
-  let avgVolume = rawAvgVolume > 0 ? rawAvgVolume : 0;
+  let volume: number | null = rawVolume > 0 ? rawVolume : null;
+  let avgVolume: number | null = rawAvgVolume > 0 ? rawAvgVolume : null;
   const upper = symbol.toUpperCase();
   const upperMapped = mapped.toUpperCase();
 
   if (upperMapped === '^GSPC' || upper === 'SPX' || upper === '^GSPC') {
-    avgVolume = 4120000000;
-    if (volume > 0 && volume < 3.2e9) {
+    if (volume && volume > 0 && volume < 3.2e9) {
       // Yahoo reports single-exchange NYSE volume (~48-52% of total). Scale to US consolidated volume.
       volume = Math.round(volume * 2.08);
     }
-  } else if (upperMapped === '^IXIC' || upper === 'IXIC') {
-    avgVolume = 5250000000;
-  } else if (upperMapped === '^TNX' || upper === 'TNX') {
-    avgVolume = 0;
-    volume = 0;
-  } else if (upperMapped === 'DX-Y.NYB' || upper === 'DXY') {
-    avgVolume = 0;
-    volume = 0;
-  } else if (upperMapped === 'GC=F' || upper === 'GC=F') {
-    avgVolume = 285000;
   }
 
-  const rvol = (avgVolume > 0 && volume > 0) ? Number((volume / avgVolume).toFixed(2)) : 0;
+  const rvol = (volume && avgVolume && avgVolume > 0 && volume > 0)
+    ? Number((volume / avgVolume).toFixed(2))
+    : null;
+
   return { volume, avgVolume, rvol };
 }
 
