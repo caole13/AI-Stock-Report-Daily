@@ -12,7 +12,6 @@ import { SectorPerformance, SectorLeaderStock } from "../types";
 import {
   analyzeVolume,
   resolveStockVolumeData,
-  getStockBenchmark,
   getYahooFinanceUrl,
 } from "../utils/volumeHelper";
 

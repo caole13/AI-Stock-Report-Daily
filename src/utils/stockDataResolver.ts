@@ -107,9 +107,7 @@ export function resolveUnifiedStockData(
         foundSectorName ||
         benchmark.sector;
 
-  // 2. Resolve Price
-  // Detail modal prioritized: liveQuote -> rawStock -> moverItem -> foundLeader -> foundMacro -> benchmark.typicalPrice
-  // 2. Resolve Price: Prioritize report's recorded price so historical reports maintain data consistency
+  // 2. Resolve Price: Prioritize report's recorded price so historical reports maintain data consistency; strictly null if missing
   const price: number | null =
     (rawStock?.price && rawStock.price > 0 ? rawStock.price : null) ??
     (moverItem?.price && moverItem.price > 0 ? moverItem.price : null) ??

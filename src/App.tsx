@@ -14,7 +14,7 @@ import { StockDetailModal } from "./components/StockDetailModal";
 import { PromptPayloadModal } from "./components/PromptPayloadModal";
 import { StockAnalysisPanel } from "./components/StockAnalysisPanel";
 import { TabType, StockDetail, StockAnalysisResult, StockRecommendation } from "./types";
-import { getStockBenchmark, resolveStockVolumeData, parseChangePct } from "./utils/volumeHelper";
+import { resolveStockVolumeData, parseChangePct } from "./utils/volumeHelper";
 import { resolveUnifiedStockData } from "./utils/stockDataResolver";
 import { getPriceActionSignals, getBottomHuntSignals } from "./data/radarSignals";
 import { generateMasterMarkdownReport } from "./utils/markdownExporter";

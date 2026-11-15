@@ -19,7 +19,6 @@ import { MoverStockItem } from "../types";
 import {
   analyzeVolume,
   resolveStockVolumeData,
-  getStockBenchmark,
   getYahooFinanceUrl,
 } from "../utils/volumeHelper";
 
