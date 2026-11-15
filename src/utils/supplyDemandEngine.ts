@@ -93,31 +93,39 @@ export function resolveSupplyDemandCandidates(
     }
 
     // 3. Proximal & Distal Lines (近端线进场位 & 远端线防守位)
-    // Try extract from keyLevels
+    // 严格恪守零假数据原则：只提取研报确权点位或 Yahoo 官方行情真实高低点，绝不搞百分比插值估算
     const rawSupport = extractNumber(rawStock?.keyLevels?.support) || extractNumber(unified.support);
     const rawInvalidation = extractNumber(rawStock?.invalidationLevel) || extractNumber(unified.invalidationLevel);
     const rawResistance = extractNumber(rawStock?.keyLevels?.resistance) || extractNumber(unified.resistance);
     const rawTarget = unified.valuation?.targetMeanPrice || extractNumber(rawStock?.target);
 
-    // Distal Line (远端防守线)
+    // Distal Line (远端防守线):
+    // kking2020: 远端线是基底K线区域的最远影线极值（做多止损底线）。优先使用研报确权失效位，其次为当日真实最低价
     const distalLine: number | null =
       rawInvalidation != null && rawInvalidation < price
         ? rawInvalidation
-        : (unified.low != null && unified.low < price ? Number((unified.low * 0.985).toFixed(2)) : Number((price * 0.95).toFixed(2)));
+        : (unified.low != null && unified.low < price ? unified.low : null);
 
-    // Proximal Line (近端进场线)
+    // Proximal Line (近端进场线):
+    // kking2020: 近端线是基底K线实体边缘（回踩挂单进场点）。优先使用研报支撑位，其次为当日真实开盘价
     const proximalLine: number | null =
-      rawSupport != null && rawSupport <= price && rawSupport > (distalLine ?? 0)
+      rawSupport != null && rawSupport <= price && (distalLine == null || rawSupport > distalLine)
         ? rawSupport
-        : (unified.low != null && unified.low <= price ? Number((unified.low * 1.005).toFixed(2)) : Number((price * 0.985).toFixed(2)));
+        : (unified.open != null && unified.open < price && (distalLine == null || unified.open > distalLine)
+            ? unified.open
+            : null);
 
-    // Target Price (上方目标供给区)
+    // Target Price (上方目标供给区):
+    // 优先使用研报目标位，其次为华尔街官方共识均价，再次为真实阻力位
     const targetPrice: number | null =
       rawTarget != null && rawTarget > price
         ? rawTarget
-        : (rawResistance != null && rawResistance > price ? rawResistance : Number((price * 1.08).toFixed(2)));
+        : (unified.valuation?.targetMeanPrice != null && unified.valuation.targetMeanPrice > price
+            ? unified.valuation.targetMeanPrice
+            : (rawResistance != null && rawResistance > price ? rawResistance : null));
 
     // 4. Calculate Risk-Reward Ratio (量化盈亏比 R:R = 目标空间 ÷ 止损空间)
+    // 双档标准：kking2020 原文基准 ≥ 2.0x 达标进场；机构精选评级 ≥ 2.5x 优质
     let riskRewardRatio: number | null = null;
     let riskRewardLabel = "暂无";
     if (proximalLine != null && distalLine != null && targetPrice != null) {
@@ -131,11 +139,10 @@ export function resolveSupplyDemandCandidates(
     }
 
     // 5. 14-Day ATR Volatility (真实波幅)
+    // 仅基于日内真实高低点价差计算单日真实波动区间(True Range)；缺失时严格标记为 null，不强行百分比插值
     let atr14: number | null = null;
     if (unified.high != null && unified.low != null && unified.high > unified.low) {
       atr14 = Number((unified.high - unified.low).toFixed(2));
-    } else {
-      atr14 = Number((price * 0.025).toFixed(2));
     }
 
     // 6. Pattern Confirmation (时机形态确认)
@@ -164,7 +171,13 @@ export function resolveSupplyDemandCandidates(
       entryAction = "观望不达标";
     }
 
-    const entryReason = `【①道氏趋势】大周期处于${dowTrend}；【②供需区位置】价格位于${zoneType}区间，近端线(进场)为 $${proximalLine?.toFixed(2) ?? "暂无"}，远端线(防守)为 $${distalLine?.toFixed(2) ?? "暂无"}；【③时机确认】盘面展现${patternConfirmation}；【④盈亏比与风控】上方目标位 $${targetPrice?.toFixed(2) ?? "暂无"}，量化盈亏比为 ${riskRewardLabel}，单日真实波幅(ATR)约 $${atr14?.toFixed(2) ?? "暂无"}，符合四步闭环交易法则。`;
+    const fmtPrice = (val: number | null | undefined) => (val != null ? `$${val.toFixed(2)}` : "暂无");
+    const proximalStr = fmtPrice(proximalLine);
+    const distalStr = fmtPrice(distalLine);
+    const targetStr = fmtPrice(targetPrice);
+    const atrStr = fmtPrice(atr14);
+
+    const entryReason = `【①道氏趋势】美股日线大周期处于${dowTrend}；【②供需区位置】价格位于${zoneType}区间，近端线(进场)为 ${proximalStr}，远端线(防守)为 ${distalStr}；【③时机确认】盘面展现${patternConfirmation}；【④盈亏比与风控】上方目标位 ${targetStr}，量化盈亏比为 ${riskRewardLabel}，单日真实波动(ATR)约 ${atrStr}，契合 kking2020 美股四步交易法则。`;
 
     candidates.push({
       ticker,

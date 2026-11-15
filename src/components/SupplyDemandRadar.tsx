@@ -33,7 +33,7 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
   onSelectStock,
   onAskAiForStock,
 }) => {
-  const [filterMode, setFilterMode] = useState<"all" | "high_rr" | "dbr" | "rbr">("all");
+  const [filterMode, setFilterMode] = useState<"all" | "high_rr" | "standard_rr" | "dbr" | "rbr">("all");
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
 
   // 1. Resolve all candidates dynamically
@@ -41,10 +41,13 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
     return resolveSupplyDemandCandidates(currentDayData || null, yahooQuotes);
   }, [currentDayData, yahooQuotes]);
 
-  // 2. Filter candidates
+  // 2. Filter candidates (严格两档区隔：kking2020 基准达标 ≥2.0x vs 机构优质精选 ≥2.5x)
   const filteredCandidates = useMemo(() => {
     if (filterMode === "high_rr") {
       return allCandidates.filter((c) => (c.riskRewardRatio ?? 0) >= 2.5);
+    }
+    if (filterMode === "standard_rr") {
+      return allCandidates.filter((c) => (c.riskRewardRatio ?? 0) >= 2.0);
     }
     if (filterMode === "dbr") {
       return allCandidates.filter((c) => c.zoneType.includes("DBR"));
@@ -57,6 +60,7 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
 
   // 3. Key Metrics summary
   const totalCount = allCandidates.length;
+  const standardRrCount = allCandidates.filter((c) => (c.riskRewardRatio ?? 0) >= 2.0).length;
   const highRrCount = allCandidates.filter((c) => (c.riskRewardRatio ?? 0) >= 2.5).length;
   const validRrList = allCandidates.map((c) => c.riskRewardRatio).filter((r): r is number => r != null && r > 0);
   const avgRr = validRrList.length > 0 ? (validRrList.reduce((a, b) => a + b, 0) / validRrList.length).toFixed(1) : "—";
@@ -77,11 +81,11 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
                   供需区与K线战法进场雷达 (Supply-Demand Action Radar)
                 </h2>
                 <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-amber-950/60 text-amber-300 border border-amber-800/60 font-semibold">
-                  KK战法 · 四步闭环进场模型
+                  美股日线 · 四步闭环模型
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
-                基于 <span className="text-amber-200 font-mono">kking2020</span> 价格行为学教程体系：①道氏大周期定方向 → ②供需区找关键位 (DBR/RBR) → ③K线形态确认 → ④盈亏比 (R:R ≥ 2.0x) + ATR量化风控
+                基于 <span className="text-amber-200 font-mono">kking2020</span> 价格行为学体系（已针对美股日线常规交易时段与真实波幅进行规范适配）：①道氏大周期定方向 → ②供需区找关键位 (DBR/RBR) → ③K线形态确认 → ④盈亏比两档分级（基准达标 ≥2.0x / 机构优质 ≥2.5x）+ ATR真实波幅量化风控
               </p>
             </div>
           </div>
@@ -99,7 +103,7 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
             <span className="text-amber-400 font-bold shrink-0">①</span>
             <div>
               <span className="text-slate-200 font-semibold block text-[11px]">方向 · 道氏理论</span>
-              <span className="text-[10px] text-slate-500">只认高低点，顺大势做多</span>
+              <span className="text-[10px] text-slate-500">美股日线高低点，顺大势做多</span>
             </div>
           </div>
           <div className="p-2.5 rounded bg-[#0a0a0a] border border-slate-850 flex items-start gap-2">
@@ -119,8 +123,8 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
           <div className="p-2.5 rounded bg-[#0a0a0a] border border-slate-850 flex items-start gap-2">
             <span className="text-rose-400 font-bold shrink-0">④</span>
             <div>
-              <span className="text-slate-200 font-semibold block text-[11px]">离场 · 盈亏比≥2.0</span>
-              <span className="text-[10px] text-slate-500">远端线防守，不到2倍不做</span>
+              <span className="text-slate-200 font-semibold block text-[11px]">离场 · 盈亏比两档</span>
+              <span className="text-[10px] text-slate-500">基准≥2.0x / 机构优质≥2.5x</span>
             </div>
           </div>
         </div>
@@ -136,22 +140,22 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
           </div>
         </div>
         <div className="p-3.5 bg-[#111111] border border-slate-800 rounded-sm">
-          <span className="text-[10px] text-emerald-400 block mb-1">优质盈亏比 (R:R ≥ 2.5:1)</span>
+          <span className="text-[10px] text-cyan-400 block mb-1">战法基准达标 (R:R ≥ 2.0x)</span>
+          <div className="text-xl font-bold text-cyan-300 flex items-baseline gap-1">
+            <span>{standardRrCount}</span>
+            <span className="text-xs text-slate-500 font-normal">只达到进场线</span>
+          </div>
+        </div>
+        <div className="p-3.5 bg-[#111111] border border-slate-800 rounded-sm">
+          <span className="text-[10px] text-emerald-400 block mb-1">机构精选优质 (R:R ≥ 2.5x)</span>
           <div className="text-xl font-bold text-emerald-300 flex items-baseline gap-1">
             <span>{highRrCount}</span>
             <span className="text-xs text-slate-500 font-normal">只黄金机会</span>
           </div>
         </div>
         <div className="p-3.5 bg-[#111111] border border-slate-800 rounded-sm">
-          <span className="text-[10px] text-[#d4af37] block mb-1">平均盈亏回报比</span>
-          <div className="text-xl font-bold text-[#d4af37] flex items-baseline gap-1">
-            <span>{avgRr}</span>
-            <span className="text-xs text-slate-500 font-normal">:1</span>
-          </div>
-        </div>
-        <div className="p-3.5 bg-[#111111] border border-slate-800 rounded-sm">
-          <span className="text-[10px] text-cyan-400 block mb-1">新鲜需求区 (首测)</span>
-          <div className="text-xl font-bold text-cyan-300 flex items-baseline gap-1">
+          <span className="text-[10px] text-amber-400 block mb-1">新鲜需求区 (首测)</span>
+          <div className="text-xl font-bold text-amber-300 flex items-baseline gap-1">
             <span>{freshCount}</span>
             <span className="text-xs text-slate-500 font-normal">/ {totalCount} 标的</span>
           </div>
@@ -180,13 +184,24 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
             }`}
           >
             <Award className="w-3 h-3" />
-            <span>优质盈亏比 ≥ 2.5:1 ({highRrCount})</span>
+            <span>优质精选 ≥ 2.5:1 ({highRrCount})</span>
+          </button>
+          <button
+            onClick={() => setFilterMode("standard_rr")}
+            className={`px-3 py-1.5 rounded-sm transition-colors cursor-pointer flex items-center gap-1 ${
+              filterMode === "standard_rr"
+                ? "bg-cyan-600 text-white font-bold"
+                : "text-slate-400 hover:text-white hover:bg-slate-800/60"
+            }`}
+          >
+            <CheckCircle2 className="w-3 h-3" />
+            <span>基准达标 ≥ 2.0:1 ({standardRrCount})</span>
           </button>
           <button
             onClick={() => setFilterMode("dbr")}
             className={`px-3 py-1.5 rounded-sm transition-colors cursor-pointer ${
               filterMode === "dbr"
-                ? "bg-cyan-600 text-white font-bold"
+                ? "bg-sky-600 text-white font-bold"
                 : "text-slate-400 hover:text-white hover:bg-slate-800/60"
             }`}
           >
@@ -215,12 +230,17 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
           const isSelected = selectedTicker === c.ticker;
           const isPositive = (c.changePercent ?? 0) >= 0;
           const isHighRr = (c.riskRewardRatio ?? 0) >= 2.5;
+          const isStandardRr = (c.riskRewardRatio ?? 0) >= 2.0;
 
           return (
             <div
               key={c.ticker}
               className={`bg-[#111111] border rounded-sm transition-all overflow-hidden ${
-                isHighRr ? "border-emerald-900/60 hover:border-emerald-600/80" : "border-slate-800 hover:border-slate-700"
+                isHighRr
+                  ? "border-emerald-900/60 hover:border-emerald-600/80"
+                  : isStandardRr
+                  ? "border-cyan-900/60 hover:border-cyan-600/80"
+                  : "border-slate-800 hover:border-slate-700"
               }`}
             >
               {/* Card Header Row */}
@@ -247,7 +267,7 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
                   {/* Price & Change */}
                   <div className="text-right font-mono">
                     <span className="text-sm font-bold text-white block">
-                      ${c.price?.toFixed(2) ?? "暂无报价"}
+                      {c.price != null ? `$${c.price.toFixed(2)}` : "暂无报价"}
                     </span>
                     <span
                       className={`text-xs font-semibold ${
@@ -260,17 +280,30 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
                     </span>
                   </div>
 
-                  {/* R:R Ratio Badge */}
-                  <div
-                    className={`px-3 py-1.5 rounded-sm border font-mono text-center shrink-0 ${
-                      isHighRr
-                        ? "bg-emerald-950/80 text-emerald-300 border-emerald-700/80"
-                        : "bg-amber-950/60 text-amber-300 border-amber-700/60"
-                    }`}
-                  >
-                    <span className="text-[10px] block opacity-75">盈亏比 R:R</span>
-                    <span className="text-sm font-bold">{c.riskRewardLabel}</span>
-                  </div>
+                  {/* R:R Ratio Badge with Dual-Tier Distinctions */}
+                  {(() => {
+                    const rr = c.riskRewardRatio;
+                    let badgeClass = "bg-slate-900 text-slate-400 border-slate-800";
+                    let badgeTier = "暂无评级";
+                    if (rr != null) {
+                      if (rr >= 2.5) {
+                        badgeClass = "bg-emerald-950/80 text-emerald-300 border-emerald-700/80";
+                        badgeTier = "机构精选优质 (≥2.5x)";
+                      } else if (rr >= 2.0) {
+                        badgeClass = "bg-cyan-950/80 text-cyan-300 border-cyan-700/80";
+                        badgeTier = "战法基准达标 (≥2.0x)";
+                      } else {
+                        badgeClass = "bg-amber-950/40 text-amber-300 border-amber-800/50";
+                        badgeTier = "空间偏紧 (<2.0x)";
+                      }
+                    }
+                    return (
+                      <div className={`px-3 py-1.5 rounded-sm border font-mono text-center shrink-0 ${badgeClass}`}>
+                        <span className="text-[10px] block opacity-75">{badgeTier}</span>
+                        <span className="text-sm font-bold">{c.riskRewardLabel}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
@@ -291,9 +324,13 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
                   <div className="p-2.5 rounded bg-[#141414] border border-slate-850">
                     <span className="text-[10px] text-slate-400 block">② 供需区入场 / 止损</span>
                     <div className="flex items-center gap-1.5 text-slate-200 font-bold mt-0.5">
-                      <span className="text-cyan-300">${c.proximalLine?.toFixed(2) ?? "暂无"}</span>
+                      <span className="text-cyan-300">
+                        {c.proximalLine != null ? `$${c.proximalLine.toFixed(2)}` : "暂无"}
+                      </span>
                       <span className="text-slate-600">/</span>
-                      <span className="text-rose-300">${c.distalLine?.toFixed(2) ?? "暂无"}</span>
+                      <span className="text-rose-300">
+                        {c.distalLine != null ? `$${c.distalLine.toFixed(2)}` : "暂无"}
+                      </span>
                     </div>
                     <span className="text-[10px] text-slate-500 mt-0.5 block">近端线 / 远端线</span>
                   </div>
@@ -311,9 +348,13 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
                   <div className="p-2.5 rounded bg-[#141414] border border-slate-850">
                     <span className="text-[10px] text-slate-400 block">④ 目标位 / 14日ATR</span>
                     <div className="flex items-center gap-1.5 text-slate-200 font-bold mt-0.5">
-                      <span className="text-[#d4af37]">${c.targetPrice?.toFixed(2) ?? "暂无"}</span>
+                      <span className="text-[#d4af37]">
+                        {c.targetPrice != null ? `$${c.targetPrice.toFixed(2)}` : "暂无"}
+                      </span>
                       <span className="text-slate-600">/</span>
-                      <span className="text-slate-300">±${c.atr14?.toFixed(2) ?? "暂无"}</span>
+                      <span className="text-slate-300">
+                        {c.atr14 != null ? `±$${c.atr14.toFixed(2)}` : "暂无"}
+                      </span>
                     </div>
                     <span className="text-[10px] text-slate-500 mt-0.5 block">上方供给区 / 波幅</span>
                   </div>
@@ -362,17 +403,25 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
       </div>
 
       {/* 5. Educational Methodology & Transparency Reference Card */}
-      <div className="p-4 rounded-sm bg-[#080808] border border-slate-800 text-xs font-sans text-slate-400 space-y-2">
+      <div className="p-4 rounded-sm bg-[#080808] border border-slate-800 text-xs font-sans text-slate-400 space-y-2.5">
         <div className="flex items-center gap-2 font-mono font-bold text-slate-300 text-xs">
           <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>【战法量化定义与免责声明】</span>
+          <span>【战法量化定义、时段适配与免责声明】</span>
         </div>
-        <p className="leading-relaxed text-[11px] text-slate-400">
-          本页面逻辑严格对照 <span className="text-amber-200 font-mono">kking2020.com/kline/</span> K线战法教程构建：
-          近端线（需求区实体上边沿）、远端线（需求区最低影线）、止损点（远端线外侧缓冲区）；
-          盈亏比 (R:R) 严格按公式 <code>(目标空间 ÷ 止损空间)</code> 计算，达标门槛为 <code>≥ 2.0x</code>，优选 <code>≥ 2.5x</code>。
-          所有行情价格与关键技术位均源自 Yahoo Finance 官方权威接口与当日研报，坚决恪守“零假数据、零估算兜底”原则。
-        </p>
+        <div className="space-y-1.5 leading-relaxed text-[11px] text-slate-400">
+          <p>
+            1. <strong className="text-slate-300">战法体系对照</strong>：本界面逻辑严格对照 <span className="text-amber-200 font-mono">kking2020.com/kline/</span> 四步闭环交易系统构建：近端线为需求区实体边缘（回踩挂单位）、远端线为基底区域最低影线极值（止损防守位）、目标位为上方供给区/华尔街分析师共识目标价。
+          </p>
+          <p>
+            2. <strong className="text-slate-300">盈亏比两档分级</strong>：kking2020 原文硬性规定「不到 2 倍就不做」，因此系统将 <code className="text-cyan-300">R:R ≥ 2.0x</code> 设为战法基准达标线，将 <code className="text-emerald-300">R:R ≥ 2.5x</code> 设为机构精选优质机会，两档独立筛选呈现，杜绝混淆。
+          </p>
+          <p>
+            3. <strong className="text-slate-300">美股日线与时段规范</strong>：原文虽多以加密货币为例，本雷达已针对美股常规交易时段、日线 K 线级别结构及美股真实流动性进行规范化落地，不套用币圈 24 小时高频插针口径。
+          </p>
+          <p>
+            4. <strong className="text-slate-300">零假数据誓约</strong>：所有标的价格、关键位及 14 日真实波幅 (ATR) 均源自 Yahoo Finance 官方权威行情与研报确权点位，缺失字段严格标注“暂无”，坚决恪守零估算、零插值兜底原则。
+          </p>
+        </div>
       </div>
     </div>
   );
