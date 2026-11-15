@@ -426,7 +426,7 @@ export function resolveStockVolumeData(
     }
   }
 
-  // 3. 严格禁止伪造！若无明确实测 RVOL，严格保持 null，绝不使用 typicalRvol 或涨跌幅公式推算！
+  // 3. 严格禁止伪造！若无明确实测 RVOL，严格保持 null，绝不使用估算或涨跌幅公式推算！
   // 严格禁止假数据与静态基准冒充实测！均量缺失时保持 undefined，绝不回退静态基准表
   const avgVol = rawAvgVolInput && rawAvgVolInput > 0 ? Math.round(rawAvgVolInput) : undefined;
   const todayVol = rawTodayVolInput && rawTodayVolInput > 0 ? Math.round(rawTodayVolInput) : undefined;

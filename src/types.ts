@@ -1,9 +1,9 @@
 export interface MacroAsset {
   name: string;
   ticker: string;
-  price?: number;
-  currentValue: number;
-  prevValue?: number;
+  price?: number | null;
+  currentValue?: number | null;
+  prevValue?: number | null;
   changePercent?: number | null;
   changePct?: string | null;
   trend?: 'up' | 'down' | 'neutral' | string;
@@ -11,7 +11,7 @@ export interface MacroAsset {
   description?: string;
   sparkline?: number[];
   volume?: number;
-  rvol?: number | string;
+  rvol?: number | string | null;
 }
 
 export interface MacroData {

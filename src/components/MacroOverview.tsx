@@ -11,7 +11,7 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { MacroAsset } from "../types";
-import { resolveStockVolumeData, analyzeVolume, getYahooFinanceUrl } from "../utils/volumeHelper";
+import { resolveStockVolumeData, analyzeVolume, getYahooFinanceUrl, parseChangePct } from "../utils/volumeHelper";
 
 interface MacroOverviewProps {
   macroData: {
@@ -40,18 +40,22 @@ export const MacroOverview: React.FC<MacroOverviewProps> = ({
   }
 
   const items: MacroAsset[] = rawItems.map((item: any) => {
-    const numChange = item.changePercent !== undefined && item.changePercent !== null
-      ? item.changePercent
-      : (item.changePct ? parseFloat(String(item.changePct).replace("%", "").replace("+", "")) : 0);
-    const val = item.currentValue ?? item.price ?? 0;
+    const numChange: number | null =
+      item.changePercent !== undefined && item.changePercent !== null && !isNaN(Number(item.changePercent))
+        ? Number(item.changePercent)
+        : (item.changePct ? parseChangePct(item.changePct) : null);
+    const val: number | null =
+      item.currentValue !== undefined && item.currentValue !== null && item.currentValue > 0
+        ? item.currentValue
+        : (item.price !== undefined && item.price !== null && item.price > 0 ? item.price : null);
     return {
       name: item.name || item.ticker,
       ticker: item.ticker || "",
       price: val,
       currentValue: val,
       changePercent: numChange,
-      changePct: item.changePct || `${numChange >= 0 ? "+" : ""}${numChange.toFixed(2)}%`,
-      trend: item.trend || (numChange > 0 ? "up" : numChange < 0 ? "down" : "neutral"),
+      changePct: item.changePct || (numChange !== null ? `${numChange >= 0 ? "+" : ""}${numChange.toFixed(2)}%` : null),
+      trend: item.trend || (numChange !== null ? (numChange > 0 ? "up" : numChange < 0 ? "down" : "neutral") : "neutral"),
       unit: item.unit || "",
       description: item.description || "",
       sparkline: item.sparkline || [],
@@ -121,8 +125,9 @@ export const MacroOverview: React.FC<MacroOverviewProps> = ({
       {/* Macro Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {items.map((item: MacroAsset, idx: number) => {
-          const isPos = (item.changePercent !== undefined && item.changePercent !== null && item.changePercent > 0) || item.changePct?.startsWith("+") || item.trend === "up";
-          const isNeg = (item.changePercent !== undefined && item.changePercent !== null && item.changePercent < 0) || item.changePct?.startsWith("-") || item.trend === "down";
+          const hasChange = item.changePercent !== undefined && item.changePercent !== null;
+          const isPos = hasChange ? item.changePercent! > 0 : (item.changePct ? item.changePct.startsWith("+") : false);
+          const isNeg = hasChange ? item.changePercent! < 0 : (item.changePct ? item.changePct.startsWith("-") : false);
 
           const getAssetMeta = (t: string, n: string) => {
             if (t.includes("USO") || n.includes("原油基金")) {
@@ -213,24 +218,34 @@ export const MacroOverview: React.FC<MacroOverviewProps> = ({
               {/* Middle: Price & Change */}
               <div className="my-1">
                 <div className="text-lg font-bold font-mono tracking-tight text-white flex items-baseline">
-                  {(item.currentValue ?? item.price ?? 0).toLocaleString(undefined, {
-                    minimumFractionDigits: (item.currentValue ?? item.price ?? 0) < 10 ? 2 : 2,
-                    maximumFractionDigits: 2,
-                  })}
-                  <span className="text-[10px] text-slate-400 ml-1 font-normal font-sans">
-                    {item.unit || meta.unit}
-                  </span>
+                  {item.currentValue !== null && item.currentValue !== undefined ? (
+                    <>
+                      {item.currentValue.toLocaleString(undefined, {
+                        minimumFractionDigits: item.currentValue < 10 ? 2 : 2,
+                        maximumFractionDigits: 2,
+                      })}
+                      <span className="text-[10px] text-slate-400 ml-1 font-normal font-sans">
+                        {item.unit || meta.unit}
+                      </span>
+                    </>
+                  ) : (
+                    <span className="text-xs text-slate-500 font-normal">暂无报价</span>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between mt-1">
-                  <span
-                    className={`text-xs font-mono font-medium flex items-center gap-0.5 ${
-                      isPos ? "text-emerald-400" : isNeg ? "text-rose-400" : "text-slate-400"
-                    }`}
-                  >
-                    {isPos ? <TrendingUp className="w-3 h-3" /> : isNeg ? <TrendingDown className="w-3 h-3" /> : null}
-                    {item.changePct || `${(item.changePercent ?? 0) >= 0 ? "+" : ""}${(item.changePercent ?? 0).toFixed(2)}%`}
-                  </span>
+                  {item.changePercent !== null && item.changePercent !== undefined ? (
+                    <span
+                      className={`text-xs font-mono font-medium flex items-center gap-0.5 ${
+                        isPos ? "text-emerald-400" : isNeg ? "text-rose-400" : "text-slate-400"
+                      }`}
+                    >
+                      {isPos ? <TrendingUp className="w-3 h-3" /> : isNeg ? <TrendingDown className="w-3 h-3" /> : null}
+                      {item.changePct || `${item.changePercent >= 0 ? "+" : ""}${item.changePercent.toFixed(2)}%`}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-slate-500 font-mono">暂无涨跌幅</span>
+                  )}
 
                   <span className="text-[10px] text-slate-400">
                     {item.trend === "up" ? "偏强" : item.trend === "down" ? "承压" : "平稳"}

@@ -134,17 +134,20 @@ export function App() {
       const macroData = report.macroSummary || report.macro || {};
       const rawAssets = macroData.assets || report.assets || macroData.items || [];
       const formattedItems = rawAssets.map((a: any) => {
-        // 严格以该日期研报中的权威收盘点位为准，确保大盘卡片、所选日期与研报分析三者时刻完全对齐
-        const val = a.price ?? a.currentValue ?? (a.prevValue ? a.prevValue * (1 + (a.changePercent || 0) / 100) : 100);
-        const changeStr =
+        // 严格以该日期研报中的权威收盘点位为准，确保大盘卡片、所选日期与研报分析时刻完全对齐；价格缺失时严格为 null，绝不使用 prevValue 估算或兜底 100
+        const val: number | null =
+          (a.price !== undefined && a.price !== null && a.price > 0 ? a.price : null) ??
+          (a.currentValue !== undefined && a.currentValue !== null && a.currentValue > 0 ? a.currentValue : null) ??
+          null;
+        const numChange: number | null =
+          a.changePercent !== undefined && a.changePercent !== null && !isNaN(Number(a.changePercent))
+            ? Number(a.changePercent)
+            : (a.changePct ? parseChangePct(a.changePct) : null);
+        const changeStr: string | null =
           a.changePct ||
-          (a.changePercent !== undefined && a.changePercent !== null
-            ? `${a.changePercent >= 0 ? "+" : ""}${Number(a.changePercent).toFixed(2)}%`
-            : "0.00%");
-        const numChange =
-          a.changePercent !== undefined && a.changePercent !== null
-            ? a.changePercent
-            : (a.changePct ? parseFloat(String(a.changePct).replace("%", "").replace("+", "")) : 0);
+          (numChange !== null
+            ? `${numChange >= 0 ? "+" : ""}${numChange.toFixed(2)}%`
+            : null);
 
         return {
           name: a.name || a.ticker,
@@ -153,7 +156,7 @@ export function App() {
           price: val,
           changePercent: numChange,
           changePct: changeStr,
-          trend: a.trend || (numChange > 0 ? "up" : numChange < 0 ? "down" : "neutral"),
+          trend: a.trend || (numChange !== null ? (numChange > 0 ? "up" : numChange < 0 ? "down" : "neutral") : "neutral"),
           unit: a.unit || (a.ticker?.includes("TNX") ? "%" : a.ticker?.includes("DXY") || a.ticker?.includes("GSPC") || a.ticker?.includes("SPX") || a.ticker?.includes("IXIC") ? "点" : "USD"),
           description: a.description || "",
         };
