@@ -74,23 +74,54 @@ export const onRequestGet: PagesFunction = async (context) => {
         changePercent = Number((((price - prevClose) / prevClose) * 100).toFixed(2));
       }
 
+      const quoteObj = data?.chart?.result?.[0]?.indicators?.quote?.[0] || {};
+      const rawOpens = quoteObj.open;
+      const rawHighs = quoteObj.high;
+      const rawLows = quoteObj.low;
+      const rawVolumes = quoteObj.volume;
+
+      const lastOpen = Array.isArray(rawOpens)
+        ? rawOpens.filter((v: any) => typeof v === "number" && v > 0).slice(-1)[0]
+        : null;
+      const lastHigh = Array.isArray(rawHighs)
+        ? rawHighs.filter((v: any) => typeof v === "number" && v > 0).slice(-1)[0]
+        : null;
+      const lastLow = Array.isArray(rawLows)
+        ? rawLows.filter((v: any) => typeof v === "number" && v > 0).slice(-1)[0]
+        : null;
+      const lastVol = Array.isArray(rawVolumes)
+        ? rawVolumes.filter((v: any) => typeof v === "number" && v > 0).slice(-1)[0]
+        : null;
+
       const open =
         typeof meta.regularMarketDayOpen === "number"
           ? Number(meta.regularMarketDayOpen.toFixed(2))
+          : typeof lastOpen === "number"
+          ? Number(lastOpen.toFixed(2))
           : null;
+
       const dayHigh =
         typeof meta.regularMarketDayHigh === "number"
           ? Number(meta.regularMarketDayHigh.toFixed(2))
+          : typeof lastHigh === "number"
+          ? Number(lastHigh.toFixed(2))
           : null;
+
       const dayLow =
         typeof meta.regularMarketDayLow === "number"
           ? Number(meta.regularMarketDayLow.toFixed(2))
+          : typeof lastLow === "number"
+          ? Number(lastLow.toFixed(2))
           : null;
+
       const volume =
-        typeof meta.regularMarketVolume === "number" ? meta.regularMarketVolume : null;
+        typeof meta.regularMarketVolume === "number" && meta.regularMarketVolume > 0
+          ? meta.regularMarketVolume
+          : typeof lastVol === "number"
+          ? lastVol
+          : null;
 
       // Extract real historical volume array to compute 3-month daily average volume
-      const rawVolumes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.volume;
       let avgVolume: number | null = null;
       let rvol: number | null = null;
       if (Array.isArray(rawVolumes)) {
@@ -149,7 +180,7 @@ export const onRequestGet: PagesFunction = async (context) => {
       headers: {
         "Content-Type": "application/json; charset=utf-8",
         "Access-Control-Allow-Origin": "*",
-        "Cache-Control": "public, max-age=60, s-maxage=60",
+        "Cache-Control": "public, max-age=10, s-maxage=10",
       },
     }
   );

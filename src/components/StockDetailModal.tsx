@@ -63,8 +63,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
       setLiveQuote(null);
       return;
     }
-    // If passed directly via liveQuotes from App.tsx, keep in exact sync
-    if (liveQuotes?.[upperTicker]) {
+    // If passed directly via liveQuotes from App.tsx and contains complete volume bounds, sync immediately
+    if (liveQuotes?.[upperTicker]?.volume && liveQuotes?.[upperTicker]?.avgVolume) {
       setLiveQuote(liveQuotes[upperTicker]);
       return;
     }
@@ -73,8 +73,8 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
       .then((res) => res.json())
       .then((data) => {
         if (!isMounted) return;
-        const q = data?.quotes?.[0] || data?.quotes?.[upperTicker];
-        if (q && q.price > 0) {
+        const q = data?.quotes?.[upperTicker] || (Array.isArray(data?.quotes) ? data?.quotes[0] : null);
+        if (q && (q.price > 0 || q.volume > 0)) {
           setLiveQuote(q);
         }
       })
