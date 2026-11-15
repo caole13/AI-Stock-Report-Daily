@@ -2,6 +2,7 @@ import React from "react";
 import {
   Sparkles,
   Compass,
+  Target,
   Code2,
   Calendar,
   BookOpen,
@@ -126,6 +127,19 @@ export const Header: React.FC<HeaderProps> = ({
             >
               <Compass className="w-3.5 h-3.5" />
               <span>裸K形态雷达</span>
+            </button>
+
+            {/* Tab 3: 供需战法进场 (kking2020 战法体系) */}
+            <button
+              onClick={() => setActiveTab("supply-demand")}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1 text-xs font-medium rounded-sm transition-all whitespace-nowrap cursor-pointer ${
+                activeTab === "supply-demand"
+                  ? "bg-[#d4af37] text-black font-semibold shadow-sm"
+                  : "text-neutral-300 hover:text-white hover:bg-neutral-800/80"
+              }`}
+            >
+              <Target className="w-3.5 h-3.5" />
+              <span>供需战法机会</span>
             </button>
 
             {/* 专项雷达整合下拉切换器 */}

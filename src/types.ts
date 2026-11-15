@@ -288,11 +288,34 @@ export interface ChatMessage {
 
 export type TabType =
   | 'macro'
+  | 'supply-demand'
   | 'price-action'
   | 'bottom-hunter'
   | 'sectors'
   | 'movers'
   | 'transmissions';
+
+export interface SupplyDemandCandidate {
+  ticker: string;
+  name: string;
+  sector: string;
+  price: number | null;
+  changePercent: number | null;
+  dowTrend: '多头趋势 (HH+HL)' | '空头趋势 (LH+LL)' | '区间震荡 (Range)';
+  zoneType: 'DBR (反转需求区)' | 'RBR (顺势需求区)' | 'RBD (反转供给区)' | 'DBD (顺势供给区)';
+  zoneScore: number; // 0 to 10
+  zoneFreshness: '新鲜首测 (优质)' | '二次回踩 (谨慎)' | '多次消耗 (较弱)';
+  proximalLine: number | null; // 近端线 (进场参考位)
+  distalLine: number | null;   // 远端线 (止损失效位)
+  targetPrice: number | null;  // 上方目标位 (下一个供给区/前高)
+  riskRewardRatio: number | null; // 盈亏比 (目标空间 ÷ 止损空间)
+  riskRewardLabel: string;
+  atr14: number | null;        // 14日真实波幅 (ATR)
+  patternConfirmation: string; // 形态确认
+  entryAction: '挂单触碰进场' | '等右侧收盘确认' | '观望不达标';
+  entryReason: string;         // 四步闭环交易推演原因
+  sparkline?: number[];
+}
 
 export interface PriceActionSignal {
   ticker: string;

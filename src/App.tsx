@@ -9,6 +9,7 @@ import { MoversScanner } from "./components/MoversScanner";
 import { CausalTransmissionView } from "./components/CausalTransmissionView";
 import { PriceActionScanner } from "./components/PriceActionScanner";
 import { BottomHuntingRadar } from "./components/BottomHuntingRadar";
+import { SupplyDemandRadar } from "./components/SupplyDemandRadar";
 import { HistoryCalendarModal } from "./components/HistoryCalendarModal";
 import { StockDetailModal } from "./components/StockDetailModal";
 import { PromptPayloadModal } from "./components/PromptPayloadModal";
@@ -501,6 +502,14 @@ export function App() {
             selectedDate={selectedDate}
             onSelectStock={handleSelectStock}
             onSwitchTab={setActiveTab}
+          />
+        )}
+        {activeTab === "supply-demand" && (
+          <SupplyDemandRadar
+            currentDayData={currentDayData}
+            yahooQuotes={yahooQuotes}
+            onSelectStock={handleSelectStock}
+            onAskAiForStock={handleTriggerStockAnalysis}
           />
         )}
         {activeTab === "price-action" && (
