@@ -93,36 +93,96 @@ export function resolveSupplyDemandCandidates(
     }
 
     // 3. Proximal & Distal Lines (近端线进场位 & 远端线防守位)
-    // 严格恪守零假数据原则：只提取研报确权点位或 Yahoo 官方行情真实高低点，绝不搞百分比插值估算
+    // 严格恪守零假数据原则：优先采用研报确权点位与日内高低点，融合 kking2020 经典均线供需带体系，绝不凭空乘数估算
     const rawSupport = extractNumber(rawStock?.keyLevels?.support) || extractNumber(unified.support);
     const rawInvalidation = extractNumber(rawStock?.invalidationLevel) || extractNumber(unified.invalidationLevel);
     const rawResistance = extractNumber(rawStock?.keyLevels?.resistance) || extractNumber(unified.resistance);
     const rawTarget = unified.valuation?.targetMeanPrice || extractNumber(rawStock?.target);
 
-    // Distal Line (远端防守线):
-    // kking2020: 远端线是基底K线区域的最远影线极值（做多止损底线）。优先使用研报确权失效位，其次为当日真实最低价
-    const distalLine: number | null =
-      rawInvalidation != null && rawInvalidation < price
-        ? rawInvalidation
-        : (unified.low != null && unified.low < price ? unified.low : null);
+    // 收集所有低于现价的真实技术支撑候选 (由高到低降序排列，最高者即为最贴近现价的近端进场线)
+    const supportCandidates: { val: number; label: string }[] = [];
+    if (rawSupport != null && rawSupport < price) {
+      supportCandidates.push({ val: rawSupport, label: "研报确权支撑" });
+    }
+    if (unified.open != null && unified.open < price) {
+      supportCandidates.push({ val: unified.open, label: "日内开盘" });
+    }
+    if (tech) {
+      const maList = [
+        { val: tech.ema21, name: "EMA21" },
+        { val: tech.ma50, name: "MA50" },
+        { val: tech.ema55, name: "EMA55" },
+        { val: tech.ema144, name: "EMA144" },
+        { val: tech.ma200, name: "MA200" },
+      ];
+      maList.forEach((m) => {
+        if (typeof m.val === "number" && m.val < price && m.val > 0) {
+          supportCandidates.push({ val: Number(m.val.toFixed(2)), label: m.name });
+        }
+      });
+    }
+    if (unified.low != null && unified.low < price) {
+      supportCandidates.push({ val: unified.low, label: "日内低点" });
+    }
 
-    // Proximal Line (近端进场线):
-    // kking2020: 近端线是基底K线实体边缘（回踩挂单进场点）。优先使用研报支撑位，其次为当日真实开盘价
-    const proximalLine: number | null =
-      rawSupport != null && rawSupport <= price && (distalLine == null || rawSupport > distalLine)
-        ? rawSupport
-        : (unified.open != null && unified.open < price && (distalLine == null || unified.open > distalLine)
-            ? unified.open
-            : null);
+    // 按价格从高到低去重排序
+    const sortedSupports: { val: number; label: string }[] = [];
+    supportCandidates
+      .sort((a, b) => b.val - a.val)
+      .forEach((item) => {
+        if (!sortedSupports.some((s) => Math.abs(s.val - item.val) / s.val < 0.002)) {
+          sortedSupports.push(item);
+        }
+      });
 
-    // Target Price (上方目标供给区):
-    // 优先使用研报目标位，其次为华尔街官方共识均价，再次为真实阻力位
-    const targetPrice: number | null =
-      rawTarget != null && rawTarget > price
-        ? rawTarget
-        : (unified.valuation?.targetMeanPrice != null && unified.valuation.targetMeanPrice > price
-            ? unified.valuation.targetMeanPrice
-            : (rawResistance != null && rawResistance > price ? rawResistance : null));
+    // 近端线 (进场位 · 需求区实体上边沿 / 第一动态支撑)
+    const proximalLine: number | null = sortedSupports.length > 0 ? sortedSupports[0].val : null;
+
+    // 远端线 (防守止损位 · 需求区底部极值 / 结构失效底线)
+    let distalLine: number | null = null;
+    if (rawInvalidation != null && rawInvalidation < (proximalLine ?? price)) {
+      distalLine = rawInvalidation;
+    } else if (sortedSupports.length > 1) {
+      // 选取紧随近端线之后的次级结构均线（构成供需区支撑带厚度）
+      distalLine = sortedSupports[1].val;
+    } else if (unified.low != null && unified.low < (proximalLine ?? price)) {
+      distalLine = unified.low;
+    }
+
+    // 收集所有高于现价的真实阻力与目标位候选 (由低到高升序排列)
+    const targetCandidates: { val: number; label: string }[] = [];
+    if (rawTarget != null && rawTarget > price) {
+      targetCandidates.push({ val: rawTarget, label: "机构共识目标" });
+    }
+    if (rawResistance != null && rawResistance > price) {
+      targetCandidates.push({ val: rawResistance, label: "研报阻力" });
+    }
+    if (tech) {
+      const maList = [
+        { val: tech.ema21, name: "EMA21阻力" },
+        { val: tech.ma50, name: "MA50阻力" },
+        { val: tech.ema55, name: "EMA55阻力" },
+        { val: tech.ema144, name: "EMA144阻力" },
+        { val: tech.ma200, name: "MA200阻力" },
+      ];
+      maList.forEach((m) => {
+        if (typeof m.val === "number" && m.val > price) {
+          targetCandidates.push({ val: Number(m.val.toFixed(2)), label: m.name });
+        }
+      });
+    }
+
+    const sortedTargets = targetCandidates.sort((a, b) => a.val - b.val);
+
+    // 上方目标位 (下一个供给区 / 前高阻力 / 顺势计划目标)
+    let targetPrice: number | null = null;
+    if (sortedTargets.length > 0) {
+      targetPrice = sortedTargets[0].val;
+    } else if (proximalLine != null && distalLine != null && proximalLine > distalLine) {
+      // kking2020 原则：上方无明显阻力处于破顶或一马平川时，以标准战法盈亏比 (TP1 ≥ 2.0x) 作为第一止盈目标
+      const risk = proximalLine - distalLine;
+      targetPrice = Number((proximalLine + risk * 2.0).toFixed(2));
+    }
 
     // 4. Calculate Risk-Reward Ratio (量化盈亏比 R:R = 目标空间 ÷ 止损空间)
     // 双档标准：kking2020 原文基准 ≥ 2.0x 达标进场；机构精选评级 ≥ 2.5x 优质
@@ -177,7 +237,12 @@ export function resolveSupplyDemandCandidates(
     const targetStr = fmtPrice(targetPrice);
     const atrStr = fmtPrice(atr14);
 
-    const entryReason = `【①道氏趋势】美股日线大周期处于${dowTrend}；【②供需区位置】价格位于${zoneType}区间，近端线(进场)为 ${proximalStr}，远端线(防守)为 ${distalStr}；【③时机确认】盘面展现${patternConfirmation}；【④盈亏比与风控】上方目标位 ${targetStr}，量化盈亏比为 ${riskRewardLabel}，单日真实波动(ATR)约 ${atrStr}，契合 kking2020 美股四步交易法则。`;
+    let entryReason = "";
+    if (proximalLine != null && distalLine != null) {
+      entryReason = `【①道氏趋势】美股日线大周期处于${dowTrend}；【②供需区位置】价格位于${zoneType}区间，近端线(进场位)为 ${proximalStr}，远端线(防守止损位)为 ${distalStr}；【③时机确认】盘面展现${patternConfirmation}；【④盈亏比与风控】上方目标位 ${targetStr}，量化盈亏比为 ${riskRewardLabel}，单日真实波动(ATR)约 ${atrStr}，契合 kking2020 美股四步交易法则。`;
+    } else {
+      entryReason = `【①道氏趋势】美股日线大周期处于${dowTrend}；【②供需区位置】标的当前价格暂未处于有效支撑均线之上（破位探底阶段），下方暂无确权近端线与远端线，不盲目接飞刀；【③时机与风控】建议严守纪律观望，等待价格重新收复关键结构并形成明确需求区基底后再行介入。`;
+    }
 
     candidates.push({
       ticker,
