@@ -240,6 +240,8 @@ export function resolveSupplyDemandCandidates(
     let entryReason = "";
     if (proximalLine != null && distalLine != null) {
       entryReason = `【①道氏趋势】美股日线大周期处于${dowTrend}；【②供需区位置】价格位于${zoneType}区间，近端线(进场位)为 ${proximalStr}，远端线(防守止损位)为 ${distalStr}；【③时机确认】盘面展现${patternConfirmation}；【④盈亏比与风控】上方目标位 ${targetStr}，量化盈亏比为 ${riskRewardLabel}，单日真实波动(ATR)约 ${atrStr}，契合 kking2020 美股四步交易法则。`;
+    } else if (proximalLine != null && distalLine == null) {
+      entryReason = `【①道氏趋势】美股日线大周期处于${dowTrend}；【②供需区位置】价格当前受日内低点 ${proximalStr} 近端线单点支撑，但因跌破全部主要均线系统，下方缺乏次级结构均线形成防守远端线（无缓冲区）；【③时机与风控】下方失守即创新低，单点接刀风险极高，建议保持观望，等待价格重新收复关键均线并在上方构筑稳固需求区后再行布局。`;
     } else {
       entryReason = `【①道氏趋势】美股日线大周期处于${dowTrend}；【②供需区位置】标的当前价格暂未处于有效支撑均线之上（破位探底阶段），下方暂无确权近端线与远端线，不盲目接飞刀；【③时机与风控】建议严守纪律观望，等待价格重新收复关键结构并形成明确需求区基底后再行介入。`;
     }
