@@ -1,4 +1,5 @@
-import { getStockBenchmark, resolveStockVolumeData, analyzeVolume } from "./volumeHelper";
+import { getStockBenchmark, resolveStockVolumeData, analyzeVolume, formatMarketCap } from "./volumeHelper";
+import { StockValuation } from "../types";
 
 function parseChangePct(val: any): number | null {
   if (val === null || val === undefined) return null;
@@ -49,6 +50,7 @@ export interface ResolvedStockInfo {
     ma50?: number | null;
     ma200?: number | null;
   };
+  valuation?: StockValuation;
 }
 
 /**
@@ -267,6 +269,26 @@ export function resolveUnifiedStockData(
     intradayTrendDescription = `全天振幅受限${amplitudeNum != null ? ` (${amplitudeNum.toFixed(2)}%)` : ""}，价格围绕前日收盘价横盘蓄势，等待新的催化剂。`;
   }
 
+  // 10. Fundamental Valuation & Target (Phase 1)
+  const rawTarget = liveQuote?.targetMeanPrice ?? rawStock?.valuation?.targetMeanPrice ?? null;
+  const targetUpsidePct = (price != null && rawTarget != null && price > 0)
+    ? Number((((rawTarget - price) / price) * 100).toFixed(2))
+    : null;
+
+  const rawMarketCap = liveQuote?.marketCap ?? rawStock?.valuation?.marketCap ?? null;
+  const valuation: StockValuation = {
+    forwardPE: liveQuote?.forwardPE ?? rawStock?.valuation?.forwardPE ?? null,
+    trailingPE: liveQuote?.trailingPE ?? rawStock?.valuation?.trailingPE ?? null,
+    priceToBook: liveQuote?.priceToBook ?? rawStock?.valuation?.priceToBook ?? null,
+    pegRatio: liveQuote?.pegRatio ?? rawStock?.valuation?.pegRatio ?? null,
+    marketCap: rawMarketCap,
+    marketCapFormatted: formatMarketCap(rawMarketCap),
+    targetMeanPrice: rawTarget,
+    targetUpsidePct,
+    earningsDate: liveQuote?.earningsDate ?? rawStock?.valuation?.earningsDate ?? null,
+    eps: liveQuote?.epsTrailingTwelveMonths ?? rawStock?.valuation?.eps ?? null,
+  };
+
   return {
     ticker: upperTicker,
     name,
@@ -306,5 +328,6 @@ export function resolveUnifiedStockData(
       foundLeader?.technicals ||
       rawStock?.technicals ||
       null,
+    valuation,
   };
 }

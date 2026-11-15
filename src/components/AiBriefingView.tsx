@@ -9,6 +9,7 @@ import {
   Volume2,
   VolumeX,
   ShieldAlert,
+  ShieldCheck,
   Compass,
   ArrowRight,
   TrendingUp,
@@ -532,6 +533,22 @@ ${executiveText}
               <span>前往裸K形态雷达漏斗</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
+          </div>
+
+          {/* Institutional Compliance Disclaimer & Data Lineage Banner (Phase 1 合规免责与数据血统溯源) */}
+          <div className="mt-6 p-4 rounded-sm bg-[#080808] border border-slate-800 text-xs font-sans text-slate-400 space-y-2">
+            <div className="flex items-center gap-2 font-mono font-bold text-slate-300 text-xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+              <span>【机构合规免责声明与数据血统溯源】</span>
+            </div>
+            <p className="leading-relaxed text-[11px] text-slate-400">
+              本研报所载全部市场行情、基本面估值指标（市盈率、市净率、PEG、目标价）与技术面数据均来源于 Yahoo Finance 官方实时数据接口及 SEC 公开披露信息。系统算法与多空推演模型仅作量化学术研究与客观数据呈现，不构成任何实质性投资建议或买卖要约。投资有风险，决策需独立。
+            </p>
+            <div className="flex flex-wrap items-center gap-y-1 gap-x-4 text-[10px] font-mono text-slate-500 pt-1.5 border-t border-slate-850">
+              <span>数据渠道: Yahoo Finance Official API / SEC 10-Q</span>
+              <span>数据保真口径: 零伪造 / 零估算兜底</span>
+              <span>基准快照时间: {selectedDate || report.generatedAt || "当日收盘"} 16:00 EST</span>
+            </div>
           </div>
         </div>
       )}

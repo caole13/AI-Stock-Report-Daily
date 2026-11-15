@@ -611,3 +611,11 @@ export function analyzeVolume(
     turnoverRateStr,
   };
 }
+
+export function formatMarketCap(cap?: number | null): string | null {
+  if (cap == null || isNaN(cap) || cap <= 0) return null;
+  if (cap >= 1e12) return `$${(cap / 1e12).toFixed(2)}T`;
+  if (cap >= 1e9) return `$${(cap / 1e9).toFixed(2)}B`;
+  if (cap >= 1e6) return `$${(cap / 1e6).toFixed(2)}M`;
+  return `$${cap.toLocaleString()}`;
+}

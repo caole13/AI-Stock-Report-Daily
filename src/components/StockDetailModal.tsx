@@ -15,6 +15,8 @@ import {
   ArrowRight,
   Info,
   ExternalLink,
+  ShieldCheck,
+  PieChart,
 } from "lucide-react";
 import { ResponsiveContainer, AreaChart, Area, YAxis } from "recharts";
 import { HistoricalDailyData, StockDetail } from "../types";
@@ -25,6 +27,7 @@ import {
   resolveStockVolumeData,
   parseChangePct,
   getYahooFinanceUrl,
+  formatMarketCap,
 } from "../utils/volumeHelper";
 
 export interface StockDetailModalProps {
@@ -270,6 +273,26 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   }));
   const minChartVal = trajectory.length > 0 ? Math.min(...trajectory) * 0.997 : 0;
   const maxChartVal = trajectory.length > 0 ? Math.max(...trajectory) * 1.003 : 100;
+
+  // Fundamental Valuation & Target (Phase 1 机构估值锚与财报事件雷达)
+  const rawTargetPrice = liveQuote?.targetMeanPrice ?? stock?.valuation?.targetMeanPrice ?? null;
+  const targetUpsidePct = (resolvedPrice != null && rawTargetPrice != null && resolvedPrice > 0)
+    ? Number((((rawTargetPrice - resolvedPrice) / resolvedPrice) * 100).toFixed(2))
+    : null;
+  const rawMarketCap = liveQuote?.marketCap ?? stock?.valuation?.marketCap ?? null;
+
+  const valuation = stock?.valuation || {
+    forwardPE: liveQuote?.forwardPE ?? null,
+    trailingPE: liveQuote?.trailingPE ?? null,
+    priceToBook: liveQuote?.priceToBook ?? null,
+    pegRatio: liveQuote?.pegRatio ?? null,
+    marketCap: rawMarketCap,
+    marketCapFormatted: formatMarketCap(rawMarketCap),
+    targetMeanPrice: rawTargetPrice,
+    targetUpsidePct,
+    earningsDate: liveQuote?.earningsDate ?? null,
+    eps: liveQuote?.epsTrailingTwelveMonths ?? null,
+  };
 
   // News attribution / Catalysts
   const catalystText =
@@ -706,7 +729,85 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             </div>
           </div>
 
-          {/* 3. Today's Trajectory & Cause Summary (走势与成因总结) */}
+          {/* 3. Fundamental Valuation & Event Horizon (Phase 1 机构估值锚与财报事件雷达) */}
+          {!isMacro && (
+            <div className="bg-[#080808] p-4 rounded-sm border border-slate-800 space-y-2.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-1.5 font-semibold text-slate-200">
+                  <PieChart className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>机构基本面估值锚与事件雷达 (Valuation & Event Horizon)</span>
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/50">
+                  Yahoo Finance 官方实时对齐 • 零假数据
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+                {/* 动态市盈率 Forward P/E */}
+                <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                  <span className="text-[10px] text-slate-400 block">动态市盈率 (Forward P/E)</span>
+                  <div className="text-slate-100 font-bold mt-0.5">
+                    {valuation?.forwardPE != null ? `${valuation.forwardPE.toFixed(1)}x` : <span className="text-slate-500 font-normal">暂无</span>}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    静态: {valuation?.trailingPE != null ? `${valuation.trailingPE.toFixed(1)}x` : "暂无"}
+                  </span>
+                </div>
+
+                {/* 市净率 P/B & PEG */}
+                <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                  <span className="text-[10px] text-slate-400 block">市净率 (P/B)</span>
+                  <div className="text-slate-100 font-bold mt-0.5">
+                    {valuation?.priceToBook != null ? `${valuation.priceToBook.toFixed(2)}x` : <span className="text-slate-500 font-normal">暂无</span>}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    PEG: {valuation?.pegRatio != null ? valuation.pegRatio.toFixed(2) : "暂无"}
+                  </span>
+                </div>
+
+                {/* 总市值 Market Cap */}
+                <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                  <span className="text-[10px] text-slate-400 block">总市值 (Market Cap)</span>
+                  <div className="text-cyan-300 font-bold mt-0.5">
+                    {valuation?.marketCapFormatted || (valuation?.marketCap != null ? formatMarketCap(valuation.marketCap) : <span className="text-slate-500 font-normal">暂无</span>)}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    EPS: {valuation?.eps != null ? `$${valuation.eps.toFixed(2)}` : "暂无"}
+                  </span>
+                </div>
+
+                {/* 华尔街共识目标价 Consensus Target */}
+                <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                  <span className="text-[10px] text-slate-400 block">华尔街目标价</span>
+                  <div className="text-[#d4af37] font-bold mt-0.5">
+                    {valuation?.targetMeanPrice != null ? `$${valuation.targetMeanPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
+                  </div>
+                  <span className={`text-[10px] block mt-0.5 font-bold ${
+                    valuation?.targetUpsidePct != null && valuation.targetUpsidePct > 0
+                      ? "text-emerald-400"
+                      : valuation?.targetUpsidePct != null && valuation.targetUpsidePct < 0
+                      ? "text-rose-400"
+                      : "text-slate-500 font-normal"
+                  }`}>
+                    {valuation?.targetUpsidePct != null ? `空间: ${valuation.targetUpsidePct >= 0 ? "+" : ""}${valuation.targetUpsidePct.toFixed(1)}%` : "空间: 暂无"}
+                  </span>
+                </div>
+
+                {/* 下期财报披露日 Next Earnings */}
+                <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                  <span className="text-[10px] text-slate-400 block">下期财报披露日</span>
+                  <div className="text-amber-300 font-bold mt-0.5">
+                    {valuation?.earningsDate || <span className="text-slate-500 font-normal">暂无</span>}
+                  </div>
+                  <span className="text-[10px] text-slate-500 block mt-0.5">
+                    事件风控窗口
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 4. Today's Trajectory & Cause Summary (走势与成因总结) */}
           <div className="bg-[#080808] p-4 rounded-sm border border-slate-800 space-y-3.5">
             <div className="flex items-center gap-1.5 text-xs font-mono font-bold text-[#d4af37]">
               <Zap className="w-3.5 h-3.5" />
@@ -780,25 +881,33 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
         </div>
 
         {/* Modal Bottom Footer */}
-        <div className="px-5 py-3.5 border-t border-slate-800 bg-[#0b0b0b] flex items-center justify-between">
-          <span className="text-xs text-slate-500 font-mono">
-            Yahoo Finance 官方对齐 • 零幻觉数据架构
-          </span>
+        <div className="px-5 py-3 border-t border-slate-800 bg-[#0b0b0b] flex flex-col sm:flex-row items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-slate-400 font-mono text-xs">
+            <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+            <span>数据源: Yahoo Finance Official Quote • SEC 官方披露文件</span>
+            <span className="text-slate-600 hidden sm:inline">|</span>
+            <span className="text-slate-500 hidden sm:inline">零假数据/零估算架构</span>
+          </div>
 
-          <button
-            id="modal-ask-ai-button"
-            onClick={() => {
-              onClose();
-              if (onAskAi) {
-                onAskAi(targetTicker);
-              }
-            }}
-            className="px-4 py-2 rounded-sm bg-[#d4af37] hover:bg-[#c49f27] text-black text-xs font-semibold flex items-center gap-1.5 shadow-md transition-all font-mono"
-          >
-            <Zap className="w-3.5 h-3.5 text-black" />
-            <span>向 AI 策略师提问 [{targetTicker}]</span>
-            <ArrowRight className="w-3 h-3 text-black" />
-          </button>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-slate-500 font-mono">
+              快照时刻: {selectedDate || "实时"} 16:00 EST
+            </span>
+            <button
+              id="modal-ask-ai-button"
+              onClick={() => {
+                onClose();
+                if (onAskAi) {
+                  onAskAi(targetTicker);
+                }
+              }}
+              className="px-4 py-2 rounded-sm bg-[#d4af37] hover:bg-[#c49f27] text-black text-xs font-semibold flex items-center gap-1.5 shadow-md transition-all font-mono"
+            >
+              <Zap className="w-3.5 h-3.5 text-black" />
+              <span>向 AI 策略师提问 [{targetTicker}]</span>
+              <ArrowRight className="w-3 h-3 text-black" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

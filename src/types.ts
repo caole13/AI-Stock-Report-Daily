@@ -133,6 +133,7 @@ export interface MoverStockItem {
     midTermLogic?: string;
     actionableBias?: '逢低做多' | '右侧突破' | '高抛减仓' | '观望防守' | '区间震荡' | '看多' | '看空' | string;
   };
+  valuation?: StockValuation;
   keyLevels?: KeyLevels;
 }
 
@@ -365,6 +366,19 @@ export interface UpcomingMacroCalendarEvent {
 
 export type SectorPerformance = SectorCategory;
 
+export interface StockValuation {
+  forwardPE?: number | null;
+  trailingPE?: number | null;
+  priceToBook?: number | null;
+  pegRatio?: number | null;
+  marketCap?: number | null;
+  marketCapFormatted?: string | null;
+  targetMeanPrice?: number | null;
+  targetUpsidePct?: number | null;
+  earningsDate?: string | null;
+  eps?: number | null;
+}
+
 export interface StockDetail {
   ticker: string;
   name: string;
@@ -390,6 +404,7 @@ export interface StockDetail {
     actionableBias?: '逢低做多' | '右侧突破' | '高抛减仓' | '观望防守' | '区间震荡' | '看多' | '看空' | string;
   };
   keyLevels?: KeyLevels;
+  valuation?: StockValuation;
 }
 
 export interface StockAnalysisResult {

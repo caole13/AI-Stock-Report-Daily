@@ -56,6 +56,11 @@ export interface MarketQuote {
   currency?: string;
   trailingPE?: number | null;
   forwardPE?: number | null;
+  priceToBook?: number | null;
+  pegRatio?: number | null;
+  targetMeanPrice?: number | null;
+  earningsDate?: string | null;
+  epsTrailingTwelveMonths?: number | null;
 }
 
 // In-memory cache to avoid rate limits
@@ -139,6 +144,15 @@ export async function getQuote(symbol: string, forceRefresh = false): Promise<Ma
       currency: raw.currency || 'USD',
       trailingPE: raw.trailingPE != null ? Number(raw.trailingPE.toFixed(2)) : null,
       forwardPE: raw.forwardPE != null ? Number(raw.forwardPE.toFixed(2)) : null,
+      priceToBook: raw.priceToBook != null ? Number(raw.priceToBook.toFixed(2)) : null,
+      pegRatio: raw.pegRatio != null ? Number(raw.pegRatio.toFixed(2)) : null,
+      targetMeanPrice: raw.targetMeanPrice != null ? Number(raw.targetMeanPrice.toFixed(2)) : null,
+      earningsDate: raw.earningsTimestamp != null
+        ? new Date(raw.earningsTimestamp * 1000).toISOString().split('T')[0]
+        : (raw.earningsTimestampStart != null
+            ? new Date(raw.earningsTimestampStart * 1000).toISOString().split('T')[0]
+            : null),
+      epsTrailingTwelveMonths: raw.epsTrailingTwelveMonths != null ? Number(raw.epsTrailingTwelveMonths.toFixed(2)) : null,
     };
 
     quoteCache.set(mapped, { timestamp: now, data: quote });
@@ -220,6 +234,15 @@ export async function getQuotes(symbols: string[], forceRefresh = false): Promis
           currency: raw.currency || 'USD',
           trailingPE: raw.trailingPE != null ? Number(raw.trailingPE.toFixed(2)) : null,
           forwardPE: raw.forwardPE != null ? Number(raw.forwardPE.toFixed(2)) : null,
+          priceToBook: raw.priceToBook != null ? Number(raw.priceToBook.toFixed(2)) : null,
+          pegRatio: raw.pegRatio != null ? Number(raw.pegRatio.toFixed(2)) : null,
+          targetMeanPrice: raw.targetMeanPrice != null ? Number(raw.targetMeanPrice.toFixed(2)) : null,
+          earningsDate: raw.earningsTimestamp != null
+            ? new Date(raw.earningsTimestamp * 1000).toISOString().split('T')[0]
+            : (raw.earningsTimestampStart != null
+                ? new Date(raw.earningsTimestampStart * 1000).toISOString().split('T')[0]
+                : null),
+          epsTrailingTwelveMonths: raw.epsTrailingTwelveMonths != null ? Number(raw.epsTrailingTwelveMonths.toFixed(2)) : null,
         };
 
         quoteCache.set(mapped, { timestamp: now, data: quote });

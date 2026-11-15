@@ -227,6 +227,7 @@ export function App() {
       volume: unified.volume,
       avgVolume: unified.avgVolume,
       sparkline: unified.sparkline,
+      valuation: unified.valuation,
       historicalCatalysts: [],
     };
   }, [selectedStockTicker, currentDayData, yahooQuotes]);
