@@ -63,9 +63,26 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
       setLiveQuote(null);
       return;
     }
-    // If passed directly via liveQuotes from App.tsx and contains complete volume bounds, sync immediately
-    if (liveQuotes?.[upperTicker]?.volume && liveQuotes?.[upperTicker]?.avgVolume) {
-      setLiveQuote(liveQuotes[upperTicker]);
+    // Identify macro asset to calibrate completion criteria
+    const isMacroAsset = Boolean(
+      upperTicker.startsWith("^") ||
+      upperTicker === "SPX" ||
+      upperTicker === "IXIC" ||
+      upperTicker === "TNX" ||
+      upperTicker === "DXY" ||
+      upperTicker === "CL=F" ||
+      upperTicker === "GC=F" ||
+      currentDayData?.macro?.items?.some((m: any) => m.ticker?.toUpperCase() === upperTicker)
+    );
+
+    // If passed directly via liveQuotes from App.tsx and contains complete bounds, sync immediately
+    const preQuote = liveQuotes?.[upperTicker];
+    const isPreComplete = isMacroAsset
+      ? Boolean(preQuote && preQuote.price > 0)
+      : Boolean(preQuote && preQuote.price > 0 && preQuote.volume && preQuote.volume > 0 && preQuote.avgVolume && preQuote.avgVolume > 0);
+
+    if (isPreComplete) {
+      setLiveQuote(preQuote);
       return;
     }
     let isMounted = true;
@@ -79,11 +96,16 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
         .then((data) => {
           if (!isMounted) return;
           const q = data?.quotes?.[upperTicker] || (Array.isArray(data?.quotes) ? data?.quotes[0] : null);
-          if (q && (q.price > 0 || q.volume > 0)) {
+          const isComplete = isMacroAsset
+            ? Boolean(q && q.price > 0)
+            : Boolean(q && q.price > 0 && q.volume && q.volume > 0 && q.avgVolume && q.avgVolume > 0);
+          if (isComplete) {
             setLiveQuote(q);
           } else if (attempts < 1) {
             attempts++;
             setTimeout(fetchWithRetry, 500);
+          } else if (q) {
+            setLiveQuote(q);
           }
         })
         .catch(() => {
@@ -97,7 +119,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, targetTicker, upperTicker, liveQuotes]);
+  }, [isOpen, targetTicker, upperTicker, liveQuotes, currentDayData]);
 
   if (!isOpen || !targetTicker) return null;
 
@@ -210,13 +232,25 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     (isMacro ? foundMacro?.volume : null) ??
     null;
 
-  const rawAvgVol =
-    (liveQuote?.avgVolume && liveQuote.avgVolume > 0 ? liveQuote.avgVolume : null) ??
-    (stock?.avgVolume && stock.avgVolume > 0 ? stock.avgVolume : null) ??
-    (moverItem?.avgVolume5d && moverItem.avgVolume5d > 0 ? moverItem.avgVolume5d : null) ??
-    (moverItem?.avgVolume && moverItem.avgVolume > 0 ? moverItem.avgVolume : null) ??
-    (isMacro ? stock?.avgVolume : null) ??
-    null;
+  // Plan B: Adaptive volume period identification (strict zero caliber confusion)
+  let avgVolumePeriod: "3月" | "5日" | null = null;
+  let rawAvgVol: number | null = null;
+  if (liveQuote?.avgVolume && liveQuote.avgVolume > 0) {
+    rawAvgVol = liveQuote.avgVolume;
+    avgVolumePeriod = "3月";
+  } else if (stock?.avgVolume && stock.avgVolume > 0) {
+    rawAvgVol = stock.avgVolume;
+    avgVolumePeriod = "3月";
+  } else if (moverItem?.avgVolume && moverItem.avgVolume > 0) {
+    rawAvgVol = moverItem.avgVolume;
+    avgVolumePeriod = "3月";
+  } else if (moverItem?.avgVolume5d && moverItem.avgVolume5d > 0) {
+    rawAvgVol = moverItem.avgVolume5d;
+    avgVolumePeriod = "5日";
+  } else if (isMacro && stock?.avgVolume && stock.avgVolume > 0) {
+    rawAvgVol = stock.avgVolume;
+    avgVolumePeriod = "3月";
+  }
 
   const hasRealVol = rawTodayVol != null || rawAvgVol != null || rawRvol != null;
 
@@ -608,7 +642,9 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             <div className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 font-bold font-mono text-[#d4af37]">
                 <Activity className="w-3.5 h-3.5" />
-                <span>成交量能对比诊断 (Volume vs. 3-Month Average)</span>
+                <span>
+                  成交量能对比诊断 (Volume vs. {avgVolumePeriod === "5日" ? "5-Day" : "3-Month"} Average)
+                </span>
               </span>
               {hasRealVol ? (
                 <span
@@ -640,11 +676,23 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
               </div>
               <div
                 className="p-2 bg-[#121212] rounded border border-slate-850"
-                title={volumeInfo.avgVol ? `${volumeInfo.avgVol.toLocaleString()} 股 (3个月日均成交量)` : undefined}
+                title={
+                  volumeInfo.avgVol
+                    ? `${volumeInfo.avgVol.toLocaleString()} 股 (${avgVolumePeriod || "基准"}日均成交量${
+                        avgVolumePeriod === "5日" ? " · 研报归档" : " · 3个月历史基准"
+                      })`
+                    : undefined
+                }
               >
-                <span className="text-[10px] text-slate-400 block">日均基准量(3月)</span>
+                <span className="text-[10px] text-slate-400 block">
+                  日均基准量{avgVolumePeriod ? `(${avgVolumePeriod})` : ""}
+                </span>
                 <span className="text-slate-300">
-                  {volumeInfo.avgVol ? volumeInfo.avgVolumeFormatted : <span className="text-slate-500 font-normal">暂无</span>}
+                  {volumeInfo.avgVol ? (
+                    volumeInfo.avgVolumeFormatted
+                  ) : (
+                    <span className="text-slate-500 font-normal">暂无</span>
+                  )}
                 </span>
               </div>
               <div
