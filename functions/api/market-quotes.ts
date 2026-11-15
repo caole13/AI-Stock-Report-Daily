@@ -14,6 +14,8 @@ interface ParsedQuote {
   dayLow: number | null;
   prevClose: number | null;
   volume: number | null;
+  avgVolume?: number | null;
+  rvol?: number | null;
   fiftyTwoWeekHigh?: number | null;
   fiftyTwoWeekLow?: number | null;
 }
@@ -41,7 +43,7 @@ export const onRequestGet: PagesFunction = async (context) => {
 
     try {
       const resp = await fetch(
-        `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(mapped)}?interval=1d&range=5d`,
+        `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(mapped)}?interval=1d&range=3mo`,
         {
           headers: {
             "User-Agent":
@@ -87,6 +89,22 @@ export const onRequestGet: PagesFunction = async (context) => {
       const volume =
         typeof meta.regularMarketVolume === "number" ? meta.regularMarketVolume : null;
 
+      // Extract real historical volume array to compute 3-month daily average volume
+      const rawVolumes = data?.chart?.result?.[0]?.indicators?.quote?.[0]?.volume;
+      let avgVolume: number | null = null;
+      let rvol: number | null = null;
+      if (Array.isArray(rawVolumes)) {
+        const validVolumes = rawVolumes.filter((v: any) => typeof v === "number" && v > 0);
+        if (validVolumes.length > 0) {
+          avgVolume = Math.round(
+            validVolumes.reduce((acc: number, cur: number) => acc + cur, 0) / validVolumes.length
+          );
+          if (volume != null && volume > 0 && avgVolume > 0) {
+            rvol = Number((volume / avgVolume).toFixed(2));
+          }
+        }
+      }
+
       const q: ParsedQuote = {
         symbol: sym,
         price,
@@ -97,6 +115,8 @@ export const onRequestGet: PagesFunction = async (context) => {
         dayLow,
         prevClose,
         volume,
+        avgVolume,
+        rvol,
         fiftyTwoWeekHigh:
           typeof meta.fiftyTwoWeekHigh === "number"
             ? Number(meta.fiftyTwoWeekHigh.toFixed(2))

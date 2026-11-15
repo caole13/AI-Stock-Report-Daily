@@ -270,6 +270,16 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     eps: liveQuote?.epsTrailingTwelveMonths ?? null,
   };
 
+  const hasAnyValuation =
+    valuation?.forwardPE != null ||
+    valuation?.trailingPE != null ||
+    valuation?.priceToBook != null ||
+    valuation?.pegRatio != null ||
+    valuation?.marketCap != null ||
+    valuation?.targetMeanPrice != null ||
+    valuation?.earningsDate != null ||
+    valuation?.eps != null;
+
   // News attribution / Catalysts
   const catalystText =
     moverItem?.newsAttribution ||
@@ -666,80 +676,92 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
 
           {/* 3. Fundamental Valuation & Event Horizon (Phase 1 机构估值锚与财报事件雷达) */}
           {!isMacro && (
-            <div className="bg-[#080808] p-4 rounded-sm border border-slate-800 space-y-2.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="flex items-center gap-1.5 font-semibold text-slate-200">
-                  <PieChart className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>机构基本面估值锚与事件雷达 (Valuation & Event Horizon)</span>
+            hasAnyValuation ? (
+              <div className="bg-[#080808] p-4 rounded-sm border border-slate-800 space-y-2.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="flex items-center gap-1.5 font-semibold text-slate-200">
+                    <PieChart className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>机构基本面估值锚与事件雷达 (Valuation & Event Horizon)</span>
+                  </span>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/50">
+                    Yahoo Finance 官方实时对齐 • 零假数据
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+                  {/* 动态市盈率 Forward P/E */}
+                  <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                    <span className="text-[10px] text-slate-400 block">动态市盈率 (Forward P/E)</span>
+                    <div className="text-slate-100 font-bold mt-0.5">
+                      {valuation?.forwardPE != null ? `${valuation.forwardPE.toFixed(1)}x` : <span className="text-slate-500 font-normal">暂无</span>}
+                    </div>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                      静态: {valuation?.trailingPE != null ? `${valuation.trailingPE.toFixed(1)}x` : "暂无"}
+                    </span>
+                  </div>
+
+                  {/* 市净率 P/B & PEG */}
+                  <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                    <span className="text-[10px] text-slate-400 block">市净率 (P/B)</span>
+                    <div className="text-slate-100 font-bold mt-0.5">
+                      {valuation?.priceToBook != null ? `${valuation.priceToBook.toFixed(2)}x` : <span className="text-slate-500 font-normal">暂无</span>}
+                    </div>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                      PEG: {valuation?.pegRatio != null ? valuation.pegRatio.toFixed(2) : "暂无"}
+                    </span>
+                  </div>
+
+                  {/* 总市值 Market Cap */}
+                  <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                    <span className="text-[10px] text-slate-400 block">总市值 (Market Cap)</span>
+                    <div className="text-cyan-300 font-bold mt-0.5">
+                      {valuation?.marketCapFormatted || (valuation?.marketCap != null ? formatMarketCap(valuation.marketCap) : <span className="text-slate-500 font-normal">暂无</span>)}
+                    </div>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                      EPS: {valuation?.eps != null ? `$${valuation.eps.toFixed(2)}` : "暂无"}
+                    </span>
+                  </div>
+
+                  {/* 华尔街共识目标价 Consensus Target */}
+                  <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                    <span className="text-[10px] text-slate-400 block">华尔街目标价</span>
+                    <div className="text-[#d4af37] font-bold mt-0.5">
+                      {valuation?.targetMeanPrice != null ? `$${valuation.targetMeanPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
+                    </div>
+                    <span className={`text-[10px] block mt-0.5 font-bold ${
+                      valuation?.targetUpsidePct != null && valuation.targetUpsidePct > 0
+                        ? "text-emerald-400"
+                        : valuation?.targetUpsidePct != null && valuation.targetUpsidePct < 0
+                        ? "text-rose-400"
+                        : "text-slate-500 font-normal"
+                    }`}>
+                      {valuation?.targetUpsidePct != null ? `空间: ${valuation.targetUpsidePct >= 0 ? "+" : ""}${valuation.targetUpsidePct.toFixed(1)}%` : "空间: 暂无"}
+                    </span>
+                  </div>
+
+                  {/* 下期财报披露日 Next Earnings */}
+                  <div className="p-2 bg-[#121212] rounded border border-slate-850">
+                    <span className="text-[10px] text-slate-400 block">下期财报披露日</span>
+                    <div className="text-amber-300 font-bold mt-0.5">
+                      {valuation?.earningsDate || <span className="text-slate-500 font-normal">暂无</span>}
+                    </div>
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                      事件风控窗口
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#080808] p-3 rounded-sm border border-slate-800/80 flex items-center justify-between text-xs font-mono text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <PieChart className="w-3.5 h-3.5 text-cyan-400/70" />
+                  <span>机构估值锚与事件雷达: 当前标的未录入估值快照</span>
                 </span>
-                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-cyan-950/60 text-cyan-300 border border-cyan-800/50">
-                  Yahoo Finance 官方实时对齐 • 零假数据
+                <span className="text-[10px] text-slate-500 font-sans">
+                  恪守零假数据 • 不做模拟推测
                 </span>
               </div>
-
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
-                {/* 动态市盈率 Forward P/E */}
-                <div className="p-2 bg-[#121212] rounded border border-slate-850">
-                  <span className="text-[10px] text-slate-400 block">动态市盈率 (Forward P/E)</span>
-                  <div className="text-slate-100 font-bold mt-0.5">
-                    {valuation?.forwardPE != null ? `${valuation.forwardPE.toFixed(1)}x` : <span className="text-slate-500 font-normal">暂无</span>}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    静态: {valuation?.trailingPE != null ? `${valuation.trailingPE.toFixed(1)}x` : "暂无"}
-                  </span>
-                </div>
-
-                {/* 市净率 P/B & PEG */}
-                <div className="p-2 bg-[#121212] rounded border border-slate-850">
-                  <span className="text-[10px] text-slate-400 block">市净率 (P/B)</span>
-                  <div className="text-slate-100 font-bold mt-0.5">
-                    {valuation?.priceToBook != null ? `${valuation.priceToBook.toFixed(2)}x` : <span className="text-slate-500 font-normal">暂无</span>}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    PEG: {valuation?.pegRatio != null ? valuation.pegRatio.toFixed(2) : "暂无"}
-                  </span>
-                </div>
-
-                {/* 总市值 Market Cap */}
-                <div className="p-2 bg-[#121212] rounded border border-slate-850">
-                  <span className="text-[10px] text-slate-400 block">总市值 (Market Cap)</span>
-                  <div className="text-cyan-300 font-bold mt-0.5">
-                    {valuation?.marketCapFormatted || (valuation?.marketCap != null ? formatMarketCap(valuation.marketCap) : <span className="text-slate-500 font-normal">暂无</span>)}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    EPS: {valuation?.eps != null ? `$${valuation.eps.toFixed(2)}` : "暂无"}
-                  </span>
-                </div>
-
-                {/* 华尔街共识目标价 Consensus Target */}
-                <div className="p-2 bg-[#121212] rounded border border-slate-850">
-                  <span className="text-[10px] text-slate-400 block">华尔街目标价</span>
-                  <div className="text-[#d4af37] font-bold mt-0.5">
-                    {valuation?.targetMeanPrice != null ? `$${valuation.targetMeanPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
-                  </div>
-                  <span className={`text-[10px] block mt-0.5 font-bold ${
-                    valuation?.targetUpsidePct != null && valuation.targetUpsidePct > 0
-                      ? "text-emerald-400"
-                      : valuation?.targetUpsidePct != null && valuation.targetUpsidePct < 0
-                      ? "text-rose-400"
-                      : "text-slate-500 font-normal"
-                  }`}>
-                    {valuation?.targetUpsidePct != null ? `空间: ${valuation.targetUpsidePct >= 0 ? "+" : ""}${valuation.targetUpsidePct.toFixed(1)}%` : "空间: 暂无"}
-                  </span>
-                </div>
-
-                {/* 下期财报披露日 Next Earnings */}
-                <div className="p-2 bg-[#121212] rounded border border-slate-850">
-                  <span className="text-[10px] text-slate-400 block">下期财报披露日</span>
-                  <div className="text-amber-300 font-bold mt-0.5">
-                    {valuation?.earningsDate || <span className="text-slate-500 font-normal">暂无</span>}
-                  </div>
-                  <span className="text-[10px] text-slate-500 block mt-0.5">
-                    事件风控窗口
-                  </span>
-                </div>
-              </div>
-            </div>
+            )
           )}
 
           {/* 4. Today's Trajectory & Cause Summary (走势与成因总结) */}
