@@ -87,6 +87,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     }
     let isMounted = true;
     let attempts = 0;
+    const maxAttempts = 2;
     const fetchWithRetry = () => {
       fetch(`/api/market-quotes?symbols=${encodeURIComponent(targetTicker)}`)
         .then((res) => {
@@ -101,17 +102,19 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             : Boolean(q && q.price > 0 && q.volume && q.volume > 0 && q.avgVolume && q.avgVolume > 0);
           if (isComplete) {
             setLiveQuote(q);
-          } else if (attempts < 1) {
+          } else if (attempts < maxAttempts) {
             attempts++;
-            setTimeout(fetchWithRetry, 500);
+            const delay = attempts === 1 ? 400 : 800; // Progressive exponential backoff (400ms -> 800ms)
+            setTimeout(fetchWithRetry, delay);
           } else if (q) {
             setLiveQuote(q);
           }
         })
         .catch(() => {
-          if (isMounted && attempts < 1) {
+          if (isMounted && attempts < maxAttempts) {
             attempts++;
-            setTimeout(fetchWithRetry, 500);
+            const delay = attempts === 1 ? 400 : 800;
+            setTimeout(fetchWithRetry, delay);
           }
         });
     };
