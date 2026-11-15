@@ -18,7 +18,6 @@ import {
   ShieldCheck,
   PieChart,
 } from "lucide-react";
-import { ResponsiveContainer, AreaChart, Area, YAxis } from "recharts";
 import { HistoricalDailyData, StockDetail } from "../types";
 import {
   analyzeVolume,
@@ -250,29 +249,6 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     highPrice != null && lowPrice != null && lowPrice > 0
       ? Number((((highPrice - lowPrice) / lowPrice) * 100).toFixed(2))
       : null;
-
-  // Synthesize Sparkline / Intraday Trajectory Points
-  let trajectory: number[] =
-    (foundMacro?.sparkline && foundMacro.sparkline.length >= 2 ? foundMacro.sparkline : null) ??
-    (moverItem?.sparkline && moverItem.sparkline.length >= 2 ? moverItem.sparkline : null) ??
-    (foundLeader?.sparkline && foundLeader.sparkline.length >= 2 ? foundLeader.sparkline : null) ??
-    (stock?.sparkline && stock.sparkline.length >= 2 ? stock.sparkline : null) ??
-    [];
-
-  if (trajectory.length < 2) {
-    if (openPrice != null && highPrice != null && lowPrice != null && resolvedPrice != null) {
-      trajectory = [openPrice, (openPrice + highPrice) / 2, highPrice, lowPrice, resolvedPrice];
-    } else if (resolvedPrice != null) {
-      trajectory = [resolvedPrice, resolvedPrice];
-    }
-  }
-
-  const chartData = trajectory.map((val, idx) => ({
-    step: idx,
-    price: val,
-  }));
-  const minChartVal = trajectory.length > 0 ? Math.min(...trajectory) * 0.997 : 0;
-  const maxChartVal = trajectory.length > 0 ? Math.max(...trajectory) * 1.003 : 100;
 
   // Fundamental Valuation & Target (Phase 1 机构估值锚与财报事件雷达)
   const rawTargetPrice = liveQuote?.targetMeanPrice ?? stock?.valuation?.targetMeanPrice ?? null;
@@ -559,81 +535,40 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
             </div>
           </div>
 
-          {/* 1. Price Movement Trajectory */}
-          <div className="bg-[#080808] p-4 rounded-sm border border-slate-800">
-            <div className="flex items-center justify-between text-xs mb-2">
+          {/* 1. Daily Key Price Metrics (日内关键价格边界与振幅) */}
+          <div className="bg-[#080808] p-4 rounded-sm border border-slate-800 space-y-2.5">
+            <div className="flex items-center justify-between text-xs">
               <span className="flex items-center gap-1.5 font-semibold text-slate-200">
                 <BarChart2 className="w-3.5 h-3.5 text-[#d4af37]" />
-                <span>全天价格波动轨迹 (Price Trajectory)</span>
+                <span>日内关键价格边界 (Key Price Bounds)</span>
               </span>
               <span className="text-[11px] font-mono text-slate-400">
                 日内振幅：{amplitude != null ? `${amplitude.toFixed(2)}%` : <span className="text-slate-500">暂无</span>}
               </span>
             </div>
 
-            {/* Clean Area Chart */}
-            <div className="h-32 w-full pt-1">
-              {trajectory.length >= 2 ? (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 8, right: 6, left: 6, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="modalTrajGrad" x1="0" y1="0" x2="0" y2="1">
-                        <stop
-                          offset="5%"
-                          stopColor={isPos ? "#10b981" : isNeg ? "#f43f5e" : "#94a3b8"}
-                          stopOpacity={0.25}
-                        />
-                        <stop
-                          offset="95%"
-                          stopColor={isPos ? "#10b981" : isNeg ? "#f43f5e" : "#94a3b8"}
-                          stopOpacity={0.0}
-                        />
-                      </linearGradient>
-                    </defs>
-                    <YAxis
-                      domain={[minChartVal, maxChartVal]}
-                      hide
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="price"
-                      stroke={isPos ? "#10b981" : isNeg ? "#f43f5e" : "#94a3b8"}
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#modalTrajGrad)"
-                      isAnimationActive={false}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
-                  分时走势轨迹数据未提取
-                </div>
-              )}
-            </div>
-
             {/* Key Price Bounds Reference Row */}
-            <div className="grid grid-cols-4 gap-2 mt-2 pt-2 border-t border-slate-850 text-center font-mono text-xs">
-              <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
-                <span className="text-[10px] text-slate-400 block">开盘价</span>
+            <div className="grid grid-cols-4 gap-2 text-center font-mono text-xs">
+              <div className="bg-[#121212] p-2 rounded-sm border border-slate-850">
+                <span className="text-[10px] text-slate-400 block mb-0.5">开盘价</span>
                 <span className="text-slate-200 font-semibold">
                   {openPrice != null ? `$${openPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
-              <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
-                <span className="text-[10px] text-emerald-400/90 block">日内最高</span>
+              <div className="bg-[#121212] p-2 rounded-sm border border-slate-850">
+                <span className="text-[10px] text-emerald-400/90 block mb-0.5">日内最高</span>
                 <span className="text-emerald-300 font-semibold">
                   {highPrice != null ? `$${highPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
-              <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
-                <span className="text-[10px] text-rose-400/90 block">日内最低</span>
+              <div className="bg-[#121212] p-2 rounded-sm border border-slate-850">
+                <span className="text-[10px] text-rose-400/90 block mb-0.5">日内最低</span>
                 <span className="text-rose-300 font-semibold">
                   {lowPrice != null ? `$${lowPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
-              <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
-                <span className="text-[10px] text-[#d4af37] block">收盘价</span>
+              <div className="bg-[#121212] p-2 rounded-sm border border-slate-850">
+                <span className="text-[10px] text-[#d4af37] block mb-0.5">收盘价</span>
                 <span className="text-white font-bold">
                   {closePrice != null ? (
                     closePrice < 10 && closePrice > 0 ? closePrice.toFixed(3) : closePrice.toFixed(2)

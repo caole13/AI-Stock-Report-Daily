@@ -509,7 +509,6 @@ export function App() {
             currentDayData={currentDayData}
             yahooQuotes={yahooQuotes}
             onSelectStock={handleSelectStock}
-            onAskAiForStock={handleTriggerStockAnalysis}
           />
         )}
         {activeTab === "price-action" && (

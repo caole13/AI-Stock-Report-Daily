@@ -24,14 +24,12 @@ interface SupplyDemandRadarProps {
   currentDayData?: HistoricalDailyData | null;
   yahooQuotes?: Record<string, any>;
   onSelectStock?: (ticker: string) => void;
-  onAskAiForStock?: (ticker: string) => void;
 }
 
 export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
   currentDayData,
   yahooQuotes,
   onSelectStock,
-  onAskAiForStock,
 }) => {
   const [filterMode, setFilterMode] = useState<"all" | "high_rr" | "standard_rr" | "dbr" | "rbr">("all");
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -383,16 +381,6 @@ export const SupplyDemandRadar: React.FC<SupplyDemandRadarProps> = ({
                     >
                       <Layers className="w-3.5 h-3.5 text-[#d4af37]" />
                       <span>查看该股详情与完整估值锚</span>
-                    </button>
-                  )}
-                  {onAskAiForStock && (
-                    <button
-                      onClick={() => onAskAiForStock(c.ticker)}
-                      className="px-3.5 py-1.5 rounded-sm bg-[#d4af37] hover:bg-[#c49f27] text-black text-xs font-mono font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                    >
-                      <Zap className="w-3.5 h-3.5" />
-                      <span>向 AI 推演 [{c.ticker}] 供需操盘计划</span>
-                      <ArrowRight className="w-3 h-3" />
                     </button>
                   )}
                 </div>
