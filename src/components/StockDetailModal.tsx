@@ -356,11 +356,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const invalidationVal =
     rawInvalidation && rawInvalidation !== "null" && rawInvalidation !== "暂无"
       ? rawInvalidation
-      : (resolvedPrice != null
-          ? (isMacro
-              ? `${(resolvedPrice * (isPos ? 0.96 : 1.04)).toFixed(2)} ${unit}`
-              : `$${(resolvedPrice * (isPos ? 0.95 : 1.05)).toFixed(2)}`)
-          : "暂无");
+      : "暂无";
 
   return (
     <div
@@ -535,7 +531,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                   </span>
                 </div>
               ) : (
-                <div className="text-xs font-mono text-slate-500">null (未提取)</div>
+                <div className="text-xs font-mono text-slate-500">暂无</div>
               )}
             </div>
           </div>
@@ -588,7 +584,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                 </ResponsiveContainer>
               ) : (
                 <div className="h-full flex items-center justify-center text-xs text-slate-500 font-mono">
-                  分时走势轨迹数据未提取 (null)
+                  分时走势轨迹数据未提取
                 </div>
               )}
             </div>

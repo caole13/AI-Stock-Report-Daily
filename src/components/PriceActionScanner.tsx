@@ -69,7 +69,7 @@ export const PriceActionScanner: React.FC<PriceActionScannerProps> = ({
         };
       default:
         return {
-          text: "EMA指标未提取 (null)",
+          text: "EMA指标未提取",
           className: "bg-slate-900/60 text-slate-400 border-slate-800",
           icon: Activity,
         };
