@@ -109,11 +109,10 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
           const numChange = stock.changePercent !== undefined && stock.changePercent !== null
             ? stock.changePercent
             : (stock.changePct ? parseFloat(String(stock.changePct).replace("%", "")) : 0);
-          const benchmark = getStockBenchmark(stock.ticker);
           const displayPrice =
             stock.price !== undefined && stock.price !== null && stock.price > 0
               ? stock.price
-              : (benchmark.typicalPrice > 0 ? benchmark.typicalPrice : null);
+              : null;
           const volData = resolveStockVolumeData(
             stock.ticker,
             stock.rvol,
@@ -139,8 +138,6 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
 
           const chartPoints = (stock.sparkline && stock.sparkline.length >= 4)
             ? stock.sparkline
-            : (benchmark.sparkline && benchmark.sparkline.length >= 4)
-            ? benchmark.sparkline
             : [];
           const chartData = chartPoints.map((v, i) => ({
             i,

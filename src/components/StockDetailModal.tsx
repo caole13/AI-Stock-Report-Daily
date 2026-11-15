@@ -148,7 +148,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     (foundMacro?.price && foundMacro.price > 0 ? foundMacro.price : null) ??
     (moverItem?.price && moverItem.price > 0 ? moverItem.price : null) ??
     (foundLeader?.price && foundLeader.price > 0 ? foundLeader.price : null) ??
-    (benchmark.typicalPrice > 0 ? benchmark.typicalPrice : null);
+    null;
 
   const rawChangePercent =
     liveQuote?.changePercent ??

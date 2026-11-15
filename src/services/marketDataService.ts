@@ -73,21 +73,11 @@ export function resolveSymbol(symbol: string): string {
 }
 
 /**
- * Calibrate raw Yahoo volume for indices and special assets where regularMarketVolume
- * only tracks single-exchange partial volume (e.g. NYSE only for ^GSPC) vs composite average volume.
+ * 校验清洗原生 Yahoo 行情成交量数据，严格禁止任何乘数放大或人工估算
  */
 function calibrateVolumeData(symbol: string, mapped: string, rawVolume: number, rawAvgVolume: number, changePercent: number) {
-  let volume: number | null = rawVolume > 0 ? rawVolume : null;
-  let avgVolume: number | null = rawAvgVolume > 0 ? rawAvgVolume : null;
-  const upper = symbol.toUpperCase();
-  const upperMapped = mapped.toUpperCase();
-
-  if (upperMapped === '^GSPC' || upper === 'SPX' || upper === '^GSPC') {
-    if (volume && volume > 0 && volume < 3.2e9) {
-      // Yahoo reports single-exchange NYSE volume (~48-52% of total). Scale to US consolidated volume.
-      volume = Math.round(volume * 2.08);
-    }
-  }
+  const volume: number | null = rawVolume > 0 ? rawVolume : null;
+  const avgVolume: number | null = rawAvgVolume > 0 ? rawAvgVolume : null;
 
   const rvol = (volume && avgVolume && avgVolume > 0 && volume > 0)
     ? Number((volume / avgVolume).toFixed(2))

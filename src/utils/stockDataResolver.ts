@@ -117,7 +117,7 @@ export function resolveUnifiedStockData(
     (foundMacro?.currentValue && foundMacro.currentValue > 0 ? foundMacro.currentValue : null) ??
     (foundMacro?.price && foundMacro.price > 0 ? foundMacro.price : null) ??
     (liveQuote?.price && liveQuote.price > 0 ? liveQuote.price : null) ??
-    (benchmark.typicalPrice > 0 ? benchmark.typicalPrice : null);
+    null;
 
   // 3. Resolve Change Percent: Prioritize report's recorded change percentage
   const rawChange =
@@ -138,26 +138,23 @@ export function resolveUnifiedStockData(
   const isNeg = changePercent < 0;
   const changePct = `${isPos ? "+" : ""}${changePercent.toFixed(2)}%`;
 
-  // 4. Resolve OHLC
+  // 4. Resolve OHLC (严格以真实数据为准，缺失时严格为 null，绝不伪造)
   const open =
     liveQuote?.open ??
     rawStock?.open ??
     moverItem?.open ??
-    benchmark.open ??
     null;
 
   const high =
     liveQuote?.dayHigh ??
     rawStock?.high ??
     moverItem?.high ??
-    benchmark.high ??
     null;
 
   const low =
     liveQuote?.dayLow ??
     rawStock?.low ??
     moverItem?.low ??
-    benchmark.low ??
     null;
 
   // 5. Volume & RVOL
@@ -205,7 +202,6 @@ export function resolveUnifiedStockData(
     (rawStock?.sparkline && rawStock.sparkline.length >= 4 ? rawStock.sparkline : null) ??
     (moverItem?.sparkline && moverItem.sparkline.length >= 4 ? moverItem.sparkline : null) ??
     (foundLeader?.sparkline && foundLeader.sparkline.length >= 4 ? foundLeader.sparkline : null) ??
-    (benchmark.sparkline && benchmark.sparkline.length >= 4 ? benchmark.sparkline : null) ??
     [];
 
 

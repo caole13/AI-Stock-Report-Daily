@@ -7,16 +7,17 @@ export interface StockBenchmark {
   name: string;
   sector: string;
   avgVolume3Month: number; // 3个月日均基准量
-  typicalTodayVolume?: number; // 权威真实当日成交量 (若未显式传入)
-  typicalPrice: number;    // 典型价格基准
-  typicalRvol: number;     // 权威典型相对成交量比率 (RVOL)
-  open?: number;           // 典型开盘价
-  high?: number;           // 典型日内最高
-  low?: number;            // 典型日内最低
-  sparkline?: number[];    // 典型日内走势点阵
   unit?: string;           // 资产价格单位，如 "USD", "点", "USD/盎司", "%", "USD/桶"
   volumeUnit?: string;     // 量能统计单位，如 "股", "手", "亿美元"
   sharesOutstanding?: number; // 总流通股本用于精准计算换手率
+  // 以下为历史废弃字段，业务代码严禁引用，防止伪造数据
+  typicalTodayVolume?: number;
+  typicalPrice?: number;
+  typicalRvol?: number;
+  open?: number;
+  high?: number;
+  low?: number;
+  sparkline?: number[];
 }
 
 export const STOCK_BENCHMARKS: Record<string, StockBenchmark> = {
@@ -606,13 +607,11 @@ export function getStockBenchmark(ticker: string): StockBenchmark {
   if (clean.includes("CROWD") || clean === "CRWD") return STOCK_BENCHMARKS["CRWD"];
   if (clean.includes("超微电脑") || clean === "SMCI") return STOCK_BENCHMARKS["SMCI"];
 
-  // 默认兜底（给予活跃美股合理的默认流动性基准与典型RVOL）
+  // 默认兜底（仅提供基础名称与流通股本单位）
   return {
     name: ticker,
     sector: "美股活跃成分标的",
-    avgVolume3Month: 18_500_000,
-    typicalPrice: 120.0,
-    typicalRvol: 1.15,
+    avgVolume3Month: 0,
     volumeUnit: "股",
   };
 }

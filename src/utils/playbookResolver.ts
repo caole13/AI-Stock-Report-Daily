@@ -60,12 +60,6 @@ export function resolveActionPlaybook(data: HistoricalDailyData | null | undefin
     }
   });
 
-  // 获取标普和纳指点位
-  const spxItem = assets.find((a: any) => a.ticker === "^GSPC" || a.ticker === "SPX");
-  const qqqItem = assets.find((a: any) => a.ticker === "QQQ" || a.ticker === "^IXIC");
-  const spxPrice = typeof spxItem?.currentValue === "number" ? spxItem.currentValue : (typeof spxItem?.price === "number" ? spxItem.price : 5870);
-  const qqqPrice = typeof qqqItem?.currentValue === "number" ? qqqItem.currentValue : (typeof qqqItem?.price === "number" ? qqqItem.price : 495);
-
   const spxTech = tech["SPX"] || tech["^GSPC"] || tech["SPY"] || {};
   const qqqTech = tech["QQQ"] || tech["^IXIC"] || {};
 

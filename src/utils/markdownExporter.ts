@@ -110,11 +110,11 @@ ${priceActionSignals
 ${bottomSignals
   .map(
     (b) =>
-      `### [${b?.divergenceAndBollinger?.action === "发射子弹" ? "🎯 发射子弹" : b?.divergenceAndBollinger?.action === "只看不碰" ? "⛔ 只看不碰" : "⛽ 空中加油"}] ${b.ticker} (${b.name}) - $${(b.price ?? 0).toFixed(2)} (${(b.changePercent ?? 0) >= 0 ? "+" : ""}${(b.changePercent ?? 0).toFixed(2)}%)
+      `### [${b?.divergenceAndBollinger?.action === "发射子弹" ? "🎯 发射子弹" : b?.divergenceAndBollinger?.action === "只看不碰" ? "⛔ 只看不碰" : "⛽ 空中加油"}] ${b.ticker} (${b.name}) - ${b.price != null ? `$${b.price.toFixed(2)}` : "暂无报价"} (${b.changePercent != null ? `${b.changePercent >= 0 ? "+" : ""}${b.changePercent.toFixed(2)}%` : "暂无涨跌幅"})
 - **判定结论**: ${b?.divergenceAndBollinger?.badge || "评估中"}
 - **MA200 过滤器**: ${b?.ma200Filter?.description || "均线整理"}
-- **MACD 零轴状态**: ${b?.macdZeroState?.description || "零轴附近"} (柱状线: ${b?.macdZeroState?.macdHist || "0.00"})
-- **布林轨道参考**: 下轨 $${b?.divergenceAndBollinger?.bollingerLower || "N/A"} | 中轨 $${b?.divergenceAndBollinger?.bollingerMid || "N/A"} | 上轨 $${b?.divergenceAndBollinger?.bollingerUpper || "N/A"}
+- **MACD 零轴状态**: ${b?.macdZeroState?.description || "零轴附近"} (柱状线: ${b?.macdZeroState?.macdHist != null ? b.macdZeroState.macdHist : "—"})
+- **布林轨道参考**: 下轨 ${b?.divergenceAndBollinger?.bollingerLower != null ? `$${b.divergenceAndBollinger.bollingerLower}` : "—"} | 中轨 ${b?.divergenceAndBollinger?.bollingerMid != null ? `$${b.divergenceAndBollinger.bollingerMid}` : "—"} | 上轨 ${b?.divergenceAndBollinger?.bollingerUpper != null ? `$${b.divergenceAndBollinger.bollingerUpper}` : "—"}
 - **量化逻辑**: ${b?.divergenceAndBollinger?.notes || "观察筹码结构"}
 `
   )

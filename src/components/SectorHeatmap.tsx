@@ -185,11 +185,10 @@ export const SectorHeatmap: React.FC<SectorHeatmapProps> = ({
                       const isStockPos = (leader.changePercent !== undefined && leader.changePercent !== null && leader.changePercent > 0) || (leader.changePct && leader.changePct.startsWith("+"));
                       const isStockNeg = (leader.changePercent !== undefined && leader.changePercent !== null && leader.changePercent < 0) || (leader.changePct && leader.changePct.startsWith("-"));
 
-                      const benchmark = getStockBenchmark(leader.ticker);
                       const displayPrice =
                         leader.price && leader.price > 0
                           ? leader.price
-                          : (benchmark.typicalPrice > 0 ? benchmark.typicalPrice : null);
+                          : null;
 
                       const volData = resolveStockVolumeData(
                         leader.ticker,
