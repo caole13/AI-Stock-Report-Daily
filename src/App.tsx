@@ -213,7 +213,7 @@ export function App() {
       ticker: unified.ticker,
       name: unified.name,
       sector: unified.sector,
-      price: unified.price || 0,
+      price: unified.price ?? null,
       open: unified.open,
       high: unified.high,
       low: unified.low,

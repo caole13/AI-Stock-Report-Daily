@@ -246,7 +246,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
   const amplitude: string =
     highPrice != null && lowPrice != null && lowPrice > 0
       ? (((highPrice - lowPrice) / lowPrice) * 100).toFixed(2)
-      : "null";
+      : "暂无";
 
   // Synthesize Sparkline / Intraday Trajectory Points
   let trajectory: number[] =
@@ -356,7 +356,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
       ? (isMacro
           ? `${(resolvedPrice * (isPos ? 0.96 : 1.04)).toFixed(2)} ${unit}`
           : `$${(resolvedPrice * (isPos ? 0.95 : 1.05)).toFixed(2)}`)
-      : "null");
+      : "暂无");
 
   return (
     <div
@@ -594,19 +594,19 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
               <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
                 <span className="text-[10px] text-slate-400 block">开盘价</span>
                 <span className="text-slate-200 font-semibold">
-                  {openPrice != null ? `$${openPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
+                  {openPrice != null ? `$${openPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
               <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
                 <span className="text-[10px] text-emerald-400/90 block">日内最高</span>
                 <span className="text-emerald-300 font-semibold">
-                  {highPrice != null ? `$${highPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
+                  {highPrice != null ? `$${highPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
               <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
                 <span className="text-[10px] text-rose-400/90 block">日内最低</span>
                 <span className="text-rose-300 font-semibold">
-                  {lowPrice != null ? `$${lowPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
+                  {lowPrice != null ? `$${lowPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
               <div className="bg-[#121212] p-1.5 rounded-sm border border-slate-850">
@@ -615,7 +615,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                   {closePrice != null ? (
                     closePrice < 10 && closePrice > 0 ? closePrice.toFixed(3) : closePrice.toFixed(2)
                   ) : (
-                    <span className="text-slate-500 font-normal">null</span>
+                    <span className="text-slate-500 font-normal">暂无</span>
                   )}
                 </span>
               </div>
