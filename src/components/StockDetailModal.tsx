@@ -243,10 +243,10 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     null;
 
   const closePrice: number | null = resolvedPrice;
-  const amplitude: string =
+  const amplitude: number | null =
     highPrice != null && lowPrice != null && lowPrice > 0
-      ? (((highPrice - lowPrice) / lowPrice) * 100).toFixed(2)
-      : "暂无";
+      ? Number((((highPrice - lowPrice) / lowPrice) * 100).toFixed(2))
+      : null;
 
   // Synthesize Sparkline / Intraday Trajectory Points
   let trajectory: number[] =
@@ -315,7 +315,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
     } else if (resolvedChangePercent < -0.3) {
       intradayTrendDescription = `全天大部分时间在平盘线下沿进行弱势拉锯，抛盘力度温和未见恐慌大单，属于技术面常态震荡休整。`;
     } else {
-      intradayTrendDescription = `全天振幅受限${amplitude !== "null" ? ` (${amplitude}%)` : ""}，分时价格紧密缠绕前日收盘价横盘整理，多空双方势均力敌进入蓄势观望期，等待新的催化剂。`;
+      intradayTrendDescription = `全天振幅受限${amplitude != null ? ` (${amplitude.toFixed(2)}%)` : ""}，分时价格紧密缠绕前日收盘价横盘整理，多空双方势均力敌进入蓄势观望期，等待新的催化剂。`;
     }
   }
 
@@ -469,7 +469,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                     </span>
                   </>
                 ) : (
-                  <span className="text-slate-500 font-mono text-xl">null</span>
+                  <span className="text-slate-500 font-normal text-base">暂无报价</span>
                 )}
               </div>
             </div>
@@ -497,7 +497,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                   {changeDisplay}
                 </div>
               ) : (
-                <div className="text-sm font-mono text-slate-500">null</div>
+                <div className="text-sm font-normal text-slate-500">暂无涨跌幅</div>
               )}
             </div>
 
@@ -544,7 +544,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                 <span>全天价格波动轨迹 (Price Trajectory)</span>
               </span>
               <span className="text-[11px] font-mono text-slate-400">
-                日内振幅：{amplitude !== "null" ? `${amplitude}%` : <span className="text-slate-500">null</span>}
+                日内振幅：{amplitude != null ? `${amplitude.toFixed(2)}%` : <span className="text-slate-500">暂无</span>}
               </span>
             </div>
 
@@ -642,7 +642,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                   {volumeInfo.badgeLabel}
                 </span>
               ) : (
-                <span className="text-[10px] font-mono text-slate-500">null</span>
+                <span className="text-[10px] font-mono text-slate-500">暂无</span>
               )}
             </div>
 
@@ -654,7 +654,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
               >
                 <span className="text-[10px] text-slate-400 block">今日成交量</span>
                 <span className="text-slate-100 font-bold">
-                  {volumeInfo.todayVol ? volumeInfo.todayVolumeFormatted : <span className="text-slate-500 font-normal">null</span>}
+                  {volumeInfo.todayVol ? volumeInfo.todayVolumeFormatted : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
               <div
@@ -663,7 +663,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
               >
                 <span className="text-[10px] text-slate-400 block">日均基准量(3月)</span>
                 <span className="text-slate-300">
-                  {volumeInfo.avgVol ? volumeInfo.avgVolumeFormatted : <span className="text-slate-500 font-normal">null</span>}
+                  {volumeInfo.avgVol ? volumeInfo.avgVolumeFormatted : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
               <div
@@ -672,7 +672,7 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
               >
                 <span className="text-[10px] text-slate-400 block">换手率(预估)</span>
                 <span className="text-cyan-300 font-bold">
-                  {volumeInfo.turnoverRateStr || <span className="text-slate-500 font-normal">null</span>}
+                  {volumeInfo.turnoverRateStr || <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
               <div className="p-2 bg-[#121212] rounded border border-slate-850">
@@ -686,13 +686,13 @@ export const StockDetailModal: React.FC<StockDetailModalProps> = ({
                       : "text-slate-300"
                   }`}
                 >
-                  {hasRealVol ? volumeInfo.deltaPercentStr : <span className="text-slate-500 font-normal">null</span>}
+                  {hasRealVol ? volumeInfo.deltaPercentStr : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
               <div className="p-2 bg-[#121212] rounded border border-slate-850">
                 <span className="text-[10px] text-slate-400 block">相对成交量比(RVOL)</span>
                 <span className="text-[#d4af37] font-bold">
-                  {hasRealVol ? volumeInfo.rvolStr : <span className="text-slate-500 font-normal">null</span>}
+                  {hasRealVol ? volumeInfo.rvolStr : <span className="text-slate-500 font-normal">暂无</span>}
                 </span>
               </div>
             </div>

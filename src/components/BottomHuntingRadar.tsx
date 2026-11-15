@@ -185,7 +185,7 @@ export const BottomHuntingRadar: React.FC<BottomHuntingRadarProps> = ({
 
                     <div className="flex items-baseline gap-2 mt-1">
                       <span className="text-base font-mono font-bold text-white">
-                        {item.price != null ? `$${item.price.toFixed(2)}` : <span className="text-slate-500 font-mono">null</span>}
+                        {item.price != null ? `$${item.price.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无报价</span>}
                       </span>
                       {item.changePercent != null ? (
                         <span
@@ -197,7 +197,7 @@ export const BottomHuntingRadar: React.FC<BottomHuntingRadarProps> = ({
                           {item.changePercent.toFixed(2)}%
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-500 font-mono">null</span>
+                        <span className="text-xs text-slate-500 font-normal">暂无涨跌幅</span>
                       )}
                     </div>
                   </div>
@@ -255,7 +255,7 @@ export const BottomHuntingRadar: React.FC<BottomHuntingRadarProps> = ({
                       柱状线 (Hist): {item.macdZeroState.macdHist != null ? (
                         `${item.macdZeroState.macdHist > 0 ? "+" : ""}${item.macdZeroState.macdHist.toFixed(2)} (${item.macdZeroState.signalType})`
                       ) : (
-                        <span className="text-slate-500 font-mono">null</span>
+                        <span className="text-slate-500 font-normal">暂无</span>
                       )}
                     </div>
                   </div>
@@ -264,9 +264,9 @@ export const BottomHuntingRadar: React.FC<BottomHuntingRadarProps> = ({
                 {/* Bollinger Bands Visual Levels */}
                 <div className="mt-3 p-2.5 rounded-sm bg-[#0a0a0a] border border-slate-850 text-xs font-mono">
                   <div className="flex items-center justify-between text-[10px] text-slate-500 mb-1.5">
-                    <span>布林下轨: {item.divergenceAndBollinger.bollingerLower != null ? `$${item.divergenceAndBollinger.bollingerLower}` : "null"}</span>
-                    <span>中轨 (MA20): {item.divergenceAndBollinger.bollingerMid != null ? `$${item.divergenceAndBollinger.bollingerMid}` : "null"}</span>
-                    <span>上轨: {item.divergenceAndBollinger.bollingerUpper != null ? `$${item.divergenceAndBollinger.bollingerUpper}` : "null"}</span>
+                    <span>布林下轨: {item.divergenceAndBollinger.bollingerLower != null ? `$${item.divergenceAndBollinger.bollingerLower}` : "暂无"}</span>
+                    <span>中轨 (MA20): {item.divergenceAndBollinger.bollingerMid != null ? `$${item.divergenceAndBollinger.bollingerMid}` : "暂无"}</span>
+                    <span>上轨: {item.divergenceAndBollinger.bollingerUpper != null ? `$${item.divergenceAndBollinger.bollingerUpper}` : "暂无"}</span>
                   </div>
                   {/* Visual Range Bar */}
                   <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">

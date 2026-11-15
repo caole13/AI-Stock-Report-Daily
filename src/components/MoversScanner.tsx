@@ -133,7 +133,7 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
           const invalidation =
             stock.invalidationLevel ||
             stock.keyLevels?.invalidation ||
-            "null";
+            "暂无";
 
           const chartPoints = (stock.sparkline && stock.sparkline.length >= 4)
             ? stock.sparkline
@@ -245,7 +245,7 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
                   {/* Price & Change % */}
                   <div className="text-right font-mono">
                     <div className="text-sm font-bold text-white">
-                      {displayPrice != null ? `$${displayPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">null</span>}
+                      {displayPrice != null ? `$${displayPrice.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无报价</span>}
                     </div>
                     <div
                       className={`flex items-center text-xs font-bold px-1.5 py-0.5 rounded-sm border ${
@@ -393,7 +393,7 @@ export const MoversScanner: React.FC<MoversScannerProps> = ({
                               【多空逻辑失效位 / 关键止损点】:
                             </span>
                             <span className="text-rose-200 font-mono text-sm font-bold">
-                              {invalidation ? (invalidation.startsWith("$") ? invalidation : `$${invalidation}`) : "null"}
+                              {invalidation && invalidation !== "暂无" ? (invalidation.startsWith("$") ? invalidation : `$${invalidation}`) : "暂无"}
                             </span>
                             <p className="text-[11px] text-slate-400 font-sans mt-0.5">
                               若价格突破此位置，原有多空逻辑被证伪，强制执行风控。

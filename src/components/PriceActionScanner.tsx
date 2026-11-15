@@ -189,7 +189,7 @@ export const PriceActionScanner: React.FC<PriceActionScannerProps> = ({
                     </div>
                     <div className="flex items-baseline gap-2 mt-1">
                       <span className="text-base font-mono font-bold text-white">
-                        {signal.price != null ? `$${signal.price.toFixed(2)}` : <span className="text-slate-500 font-mono">null</span>}
+                        {signal.price != null ? `$${signal.price.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无报价</span>}
                       </span>
                       {signal.changePercent != null ? (
                         <span
@@ -201,7 +201,7 @@ export const PriceActionScanner: React.FC<PriceActionScannerProps> = ({
                           {signal.changePercent.toFixed(2)}%
                         </span>
                       ) : (
-                        <span className="text-xs text-slate-500 font-mono">null</span>
+                        <span className="text-xs text-slate-500 font-normal">暂无涨跌幅</span>
                       )}
                     </div>
                   </div>
@@ -220,19 +220,19 @@ export const PriceActionScanner: React.FC<PriceActionScannerProps> = ({
                   <div className="bg-[#161616] p-2 rounded-sm border border-slate-800/80">
                     <div className="text-slate-500 text-[10px]">EMA 21 (快线)</div>
                     <div className="text-emerald-400 font-semibold mt-0.5">
-                      {signal.emaValues.ema21 != null ? `$${signal.emaValues.ema21.toFixed(2)}` : <span className="text-slate-500">null</span>}
+                      {signal.emaValues.ema21 != null ? `$${signal.emaValues.ema21.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
                     </div>
                   </div>
                   <div className="bg-[#161616] p-2 rounded-sm border border-slate-800/80">
                     <div className="text-slate-500 text-[10px]">EMA 55 (基准)</div>
                     <div className="text-cyan-400 font-semibold mt-0.5">
-                      {signal.emaValues.ema55 != null ? `$${signal.emaValues.ema55.toFixed(2)}` : <span className="text-slate-500">null</span>}
+                      {signal.emaValues.ema55 != null ? `$${signal.emaValues.ema55.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
                     </div>
                   </div>
                   <div className="bg-[#161616] p-2 rounded-sm border border-slate-800/80">
                     <div className="text-slate-500 text-[10px]">EMA 144 (大周期)</div>
                     <div className="text-purple-400 font-semibold mt-0.5">
-                      {signal.emaValues.ema144 != null ? `$${signal.emaValues.ema144.toFixed(2)}` : <span className="text-slate-500">null</span>}
+                      {signal.emaValues.ema144 != null ? `$${signal.emaValues.ema144.toFixed(2)}` : <span className="text-slate-500 font-normal">暂无</span>}
                     </div>
                   </div>
                 </div>
@@ -278,7 +278,7 @@ export const PriceActionScanner: React.FC<PriceActionScannerProps> = ({
                             </span>
                           </>
                         ) : (
-                          <span className="text-slate-500 font-normal">null</span>
+                          <span className="text-slate-500 font-normal">暂无</span>
                         )}
                       </span>
                     </div>
@@ -294,7 +294,7 @@ export const PriceActionScanner: React.FC<PriceActionScannerProps> = ({
                             </span>
                           </>
                         ) : (
-                          <span className="text-slate-500 font-normal">null</span>
+                          <span className="text-slate-500 font-normal">暂无</span>
                         )}
                       </span>
                     </div>
