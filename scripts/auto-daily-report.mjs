@@ -660,17 +660,31 @@ async function runAutomation() {
   const dateArg = process.argv.find((a) => a.startsWith("--date="))?.split("=")[1] || process.env.TARGET_DATE;
   const forceRun = process.env.FORCE_RUN === "true" || process.argv.includes("--force") || Boolean(dateArg);
 
-  // 美东 17 点守卫（双触发去重）
+  const today = dateArg || new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(new Date());
+
+  // 1. 美东收盘结算守卫：必须在美东时间 17:00 及之后（收盘与官方结算完成后）触发，严禁盘中提前运行；允许 runner 队列排队延迟 (nyHour >= 17)
   if (process.env.GITHUB_EVENT_NAME === "schedule" && !forceRun) {
     const nyHour = Number(new Intl.DateTimeFormat("en-US", {
       timeZone: "America/New_York",
       hour: "numeric",
       hour12: false
     }).format(new Date()));
-    if (nyHour !== 17) {
-      console.log(`[Skip] 当前美东时间 ${nyHour} 点，非 17 点定时触发，跳过本次运行（双触发去重）。`);
+    if (nyHour < 17) {
+      console.log(`[Skip] 当前美东时间 ${nyHour} 点，早于 17:00 收盘官方结算期，跳过本次运行。`);
       process.exit(0);
     }
+  }
+
+  // 2. 幂等去重守卫：若当日研报已归档且非强制运行，跳过重复生成（防止 schedule 双触发重复提交）
+  const reportFilePath = path.resolve(projectRoot, `src/data/reports/${today}.json`);
+  if (!forceRun && fs.existsSync(reportFilePath)) {
+    console.log(`[Skip] 目标交易日 [${today}] 研报已存在，跳过本次重复运行。`);
+    process.exit(0);
   }
 
   const holidayCheck = isUSMarketHolidayOrWeekend(new Date());
@@ -678,13 +692,6 @@ async function runAutomation() {
     console.log(`[Skip] 今日休市 (${holidayCheck.reason})，跳过日报生成。`);
     process.exit(0);
   }
-
-  const today = dateArg || new Intl.DateTimeFormat("en-CA", {
-    timeZone: "America/New_York",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).format(new Date());
 
   console.log(`[${new Date().toISOString()}] 启动 Phase 2 自动化流水线，目标交易日: ${today}...`);
 

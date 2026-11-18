@@ -14,9 +14,9 @@ on:
         default: true
         type: boolean
       target_date:
-        description: '指定目标日期 (YYYY-MM-DD)'
+        description: '指定目标日期 (YYYY-MM-DD，留空则自动取当日)'
         required: false
-        default: '2026-11-13'
+        default: ''
         type: string
 
 jobs:
