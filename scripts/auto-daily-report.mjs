@@ -631,6 +631,31 @@ function isUSMarketHolidayOrWeekend(now = new Date()) {
   return { isHoliday: false, reason: "" };
 }
 
+// 获取前一个正常交易日（跳过周末与美股法定节假日）
+function getPreviousTradingDay(refDate = new Date()) {
+  const nyDateStr = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).format(refDate);
+
+  let current = new Date(`${nyDateStr}T12:00:00Z`);
+  for (let i = 0; i < 7; i++) {
+    current.setUTCDate(current.getUTCDate() - 1);
+    const check = isUSMarketHolidayOrWeekend(current);
+    if (!check.isHoliday) {
+      return new Intl.DateTimeFormat("en-CA", {
+        timeZone: "America/New_York",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit"
+      }).format(current);
+    }
+  }
+  return null;
+}
+
 // 联网搜索当日新闻：两步式调用中的第一步（Step 1）
 async function fetchNewsGrounding(today) {
   if (!ai) return "";
@@ -660,36 +685,63 @@ async function runAutomation() {
   const dateArg = process.argv.find((a) => a.startsWith("--date="))?.split("=")[1] || process.env.TARGET_DATE;
   const forceRun = process.env.FORCE_RUN === "true" || process.argv.includes("--force") || Boolean(dateArg);
 
-  const today = dateArg || new Intl.DateTimeFormat("en-CA", {
+  const now = new Date();
+  const nyDateStr = new Intl.DateTimeFormat("en-CA", {
     timeZone: "America/New_York",
     year: "numeric",
     month: "2-digit",
     day: "2-digit"
-  }).format(new Date());
+  }).format(now);
 
-  // 1. 美东收盘结算守卫：必须在美东时间 17:00 及之后（收盘与官方结算完成后）触发，严禁盘中提前运行；允许 runner 队列排队延迟 (nyHour >= 17)
-  if (process.env.GITHUB_EVENT_NAME === "schedule" && !forceRun) {
-    const nyHour = Number(new Intl.DateTimeFormat("en-US", {
-      timeZone: "America/New_York",
-      hour: "numeric",
-      hour12: false
-    }).format(new Date()));
-    if (nyHour < 17) {
+  const nyHour = Number(new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "numeric",
+    hourCycle: "h23"
+  }).format(now));
+
+  let today = dateArg;
+
+  // 1. 美东收盘结算与跨日延迟补跑守卫（仅 schedule 定时触发且未手动指定日期时生效）
+  if (process.env.GITHUB_EVENT_NAME === "schedule" && !forceRun && !today) {
+    if (nyHour >= 17) {
+      // 正常收盘结算期：美东 17:00 及之后（夏令时/冬令时正常触发档）
+      today = nyDateStr;
+    } else if (nyHour < 6) {
+      // 跨日延迟容错区：美东凌晨 00:00 - 05:59（GitHub Actions schedule 严重排队延迟场景）
+      const prevTradingDay = getPreviousTradingDay(now);
+      const prevReportPath = prevTradingDay ? path.resolve(projectRoot, `src/data/reports/${prevTradingDay}.json`) : null;
+
+      if (prevTradingDay && !fs.existsSync(prevReportPath)) {
+        console.log(`[Overdue Catch-up] 检测到当前处于美东凌晨 (${nyHour} 点)，且前一交易日 [${prevTradingDay}] 研报尚未归档，自动切换目标日期为 ${prevTradingDay} 执行逾期补跑！`);
+        today = prevTradingDay;
+      } else {
+        console.log(`[Skip] 当前美东时间 ${nyHour} 点（凌晨时段），前一交易日 [${prevTradingDay || '无'}] 研报已归档，早于今日 17:00 收盘官方结算期，跳过本次运行。`);
+        process.exit(0);
+      }
+    } else {
+      // 盘前及盘中交易时段（06:00 - 16:59 EST）：未到收盘结算期，坚决跳过
       console.log(`[Skip] 当前美东时间 ${nyHour} 点，早于 17:00 收盘官方结算期，跳过本次运行。`);
       process.exit(0);
     }
   }
 
-  // 2. 幂等去重守卫：若当日研报已归档且非强制运行，跳过重复生成（防止 schedule 双触发重复提交）
+  // 若未被守卫设置且未传参，默认使用美东当日日期
+  if (!today) {
+    today = nyDateStr;
+  }
+
+  // 2. 幂等去重守卫：若目标日期研报已归档且非强制运行，跳过重复生成（防止 schedule 双触发或重跑重复提交）
   const reportFilePath = path.resolve(projectRoot, `src/data/reports/${today}.json`);
   if (!forceRun && fs.existsSync(reportFilePath)) {
     console.log(`[Skip] 目标交易日 [${today}] 研报已存在，跳过本次重复运行。`);
     process.exit(0);
   }
 
-  const holidayCheck = isUSMarketHolidayOrWeekend(new Date());
+  // 3. 休市守卫：检查目标交易日是否为周末或法定休市日
+  const targetDateObj = new Date(`${today}T12:00:00Z`);
+  const holidayCheck = isUSMarketHolidayOrWeekend(targetDateObj);
   if (holidayCheck.isHoliday && !forceRun) {
-    console.log(`[Skip] 今日休市 (${holidayCheck.reason})，跳过日报生成。`);
+    console.log(`[Skip] 目标日期 [${today}] 休市 (${holidayCheck.reason})，跳过日报生成。`);
     process.exit(0);
   }
 
