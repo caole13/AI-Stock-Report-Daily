@@ -169,8 +169,8 @@ function calcEMA(arr, period) {
   return Number(ema.toFixed(2));
 }
 
-// 统一原生 HTTP 数据获取函数：拉取 1 年日线数据，并计算真实 EMA/MA 与 RVOL
-function fetchTickerData(ticker, retryCount = 2) {
+// 统一原生 HTTP 数据获取函数：拉取 1 年日线数据，并根据 targetDate 精确对齐历史/当日 K 线
+function fetchTickerData(ticker, targetDate = null, retryCount = 2) {
   return new Promise((resolve) => {
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?range=1y&interval=1d`;
     
@@ -201,54 +201,85 @@ function fetchTickerData(ticker, retryCount = 2) {
             const rawCloses = quote.close || [];
             const rawVolumes = quote.volume || [];
 
-            // 严谨确定最新柱线 (当日/最近交易日) 的原始对齐索引，防止因全局 filter(null) 导致日期错位与伪造当日量
+            // 严谨确定柱线总数
             const barCount = Math.min(
               timestamps.length > 0 ? timestamps.length : Infinity,
               rawCloses.length > 0 ? rawCloses.length : Infinity,
               rawVolumes.length > 0 ? rawVolumes.length : Infinity
             );
             const hasBars = barCount > 0 && barCount !== Infinity;
-            const lastIdx = hasBars ? barCount - 1 : -1;
 
-            // 1. 确定当日成交量：优先使用 meta.regularMarketVolume，其次取原始最后一根柱线 rawVolumes[lastIdx]
-            // 若当日成交量为 null/缺失/<=0，严格判定为 null，绝不回退取昨日成交量冒充今日！
+            // 根据目标交易日 targetDate 定位对应的柱线索引；若未指定则默认取最新柱线 (barCount - 1)
+            let targetIdx = hasBars ? barCount - 1 : -1;
+            let isHistoricalTarget = false;
+
+            if (targetDate && hasBars) {
+              const nyFmt = new Intl.DateTimeFormat("en-CA", {
+                timeZone: "America/New_York",
+                year: "numeric",
+                month: "2-digit",
+                day: "2-digit"
+              });
+              let foundIdx = -1;
+              for (let i = barCount - 1; i >= 0; i--) {
+                const barDateStr = nyFmt.format(new Date(timestamps[i] * 1000));
+                if (barDateStr === targetDate) {
+                  foundIdx = i;
+                  break;
+                }
+              }
+              if (foundIdx !== -1) {
+                targetIdx = foundIdx;
+                // 若匹配到的柱线并非最后一根，说明是在补跑/重跑历史交易日
+                if (targetIdx < barCount - 1) {
+                  isHistoricalTarget = true;
+                }
+              } else {
+                console.warn(`⚠️ 标的 ${ticker} 在目标日期 [${targetDate}] 未找到 K 线柱，默认取最近历史柱线 (最后索引: ${targetIdx})。`);
+              }
+            }
+
+            // 1. 确定目标日成交量：
+            // 若为历史日期，严禁使用属于最新日的 meta.regularMarketVolume，严格读取目标柱 rawVolumes[targetIdx]；
+            // 若为最新收盘日，优先使用 meta.regularMarketVolume，其次取原始最后一根柱线 rawVolumes[targetIdx]。
             let todayVol = null;
-            if (typeof meta.regularMarketVolume === "number" && !isNaN(meta.regularMarketVolume) && meta.regularMarketVolume > 0) {
+            if (!isHistoricalTarget && typeof meta.regularMarketVolume === "number" && !isNaN(meta.regularMarketVolume) && meta.regularMarketVolume > 0) {
               todayVol = meta.regularMarketVolume;
-            } else if (hasBars) {
-              const rawLastVol = rawVolumes[lastIdx];
-              if (typeof rawLastVol === "number" && !isNaN(rawLastVol) && rawLastVol > 0) {
-                todayVol = rawLastVol;
+            } else if (hasBars && targetIdx >= 0) {
+              const rawTargetVol = rawVolumes[targetIdx];
+              if (typeof rawTargetVol === "number" && !isNaN(rawTargetVol) && rawTargetVol > 0) {
+                todayVol = rawTargetVol;
               }
             }
 
-            // 2. 确定当日最新价：优先使用 meta.regularMarketPrice，其次取原始最后一根柱线 rawCloses[lastIdx]
+            // 2. 确定目标日收盘价：
+            // 若为历史日期，严禁使用属于最新日的 meta.regularMarketPrice，严格读取目标柱 rawCloses[targetIdx]；
+            // 若为最新收盘日，优先使用 meta.regularMarketPrice，其次取原始最后一根柱线 rawCloses[targetIdx]。
             let currentPrice = null;
-            if (typeof meta.regularMarketPrice === "number" && !isNaN(meta.regularMarketPrice)) {
+            if (!isHistoricalTarget && typeof meta.regularMarketPrice === "number" && !isNaN(meta.regularMarketPrice)) {
               currentPrice = meta.regularMarketPrice;
-            } else if (hasBars) {
-              const rawLastClose = rawCloses[lastIdx];
-              if (typeof rawLastClose === "number" && !isNaN(rawLastClose)) {
-                currentPrice = rawLastClose;
+            } else if (hasBars && targetIdx >= 0) {
+              const rawTargetClose = rawCloses[targetIdx];
+              if (typeof rawTargetClose === "number" && !isNaN(rawTargetClose)) {
+                currentPrice = rawTargetClose;
               }
             }
 
-            // 3. 提取当日前（严格不含当日）的历史交易日序列，并过滤掉历史中的异常空值
-            const histRawCloses = hasBars ? rawCloses.slice(0, lastIdx) : [];
-            const histRawVolumes = hasBars ? rawVolumes.slice(0, lastIdx) : [];
+            // 3. 提取目标日前（严格不含目标日）的历史交易日序列，并过滤掉历史中的异常空值
+            const histRawCloses = hasBars && targetIdx >= 0 ? rawCloses.slice(0, targetIdx) : [];
+            const histRawVolumes = hasBars && targetIdx >= 0 ? rawVolumes.slice(0, targetIdx) : [];
             const histCloses = histRawCloses.filter(c => typeof c === "number" && !isNaN(c) && c > 0);
             const histVolumes = histRawVolumes.filter(v => typeof v === "number" && !isNaN(v) && v > 0);
 
             // 4. 测算 30 日量比 RVOL：传入 (历史成交量数组, 当日成交量)
-            // 当日成交量缺失 (null) 或历史有效交易日不足 30 天时，calculate30DayRvol 严格返回 null
             const rvol = calculate30DayRvol(histVolumes, todayVol);
 
-            // 5. 涨跌幅与昨收计算：严禁使用 1y chart 范围下的 chartPreviousClose（那是 1 年前的价格！）
-            // 优先直接使用 Yahoo Finance 官方计算的 regularMarketChangePercent，其次对比当日现价与上一交易日真实收盘价
+            // 5. 涨跌幅与昨收计算：
+            // 若为历史日期，严禁使用属于最新日的 meta.regularMarketChangePercent，必须按真实历史昨收计算；
             let changePctNum = 0;
             const prevCloseFromHist = histCloses.length > 0 ? histCloses[histCloses.length - 1] : null;
 
-            if (typeof meta.regularMarketChangePercent === "number" && !isNaN(meta.regularMarketChangePercent)) {
+            if (!isHistoricalTarget && typeof meta.regularMarketChangePercent === "number" && !isNaN(meta.regularMarketChangePercent)) {
               changePctNum = meta.regularMarketChangePercent;
             } else if (typeof currentPrice === "number" && typeof prevCloseFromHist === "number" && prevCloseFromHist > 0) {
               changePctNum = ((currentPrice - prevCloseFromHist) / prevCloseFromHist) * 100;
@@ -258,7 +289,7 @@ function fetchTickerData(ticker, retryCount = 2) {
             const price = typeof currentPrice === "number" ? currentPrice : (prevCloseFromHist ?? 0);
             const prevClose = prevCloseFromHist ?? (changePctNum !== 0 && typeof currentPrice === "number" ? Number((currentPrice / (1 + changePctNum / 100)).toFixed(currentPrice < 10 ? 3 : 2)) : price);
 
-            // 6. 均线计算：若当日价格有效，则严格以 [历史有效收盘价, 当日最新价] 为基准；若当日无价则仅基于历史收盘价
+            // 6. 均线计算：以 [历史有效收盘价, 目标日收盘价] 为基准
             const closesForTech = typeof currentPrice === "number" ? [...histCloses, currentPrice] : histCloses;
             const technicals = closesForTech.length > 0 ? {
               ema21: calcEMA(closesForTech, 21),
@@ -321,12 +352,12 @@ function fetchTickerData(ticker, retryCount = 2) {
   });
 }
 
-// 分批并发拉取行情（批大小为 8）
-async function fetchBatchTickerData(tickers, concurrency = 8) {
+// 分批并发拉取行情（批大小为 8，支持指定目标交易日对齐 K 线）
+async function fetchBatchTickerData(tickers, concurrency = 8, targetDate = null) {
   const results = {};
   for (let i = 0; i < tickers.length; i += concurrency) {
     const batch = tickers.slice(i, i + concurrency);
-    const batchResults = await Promise.all(batch.map(t => fetchTickerData(t)));
+    const batchResults = await Promise.all(batch.map(t => fetchTickerData(t, targetDate)));
     batch.forEach((t, idx) => {
       if (batchResults[idx]) {
         results[t] = batchResults[idx];
@@ -760,8 +791,8 @@ async function runAutomation() {
   });
 
   const tickerList = Array.from(allTickersToFetch);
-  console.log(`📊 [Step 1: 确定性行情抓取] 正在并发抓取 ${tickerList.length} 只标的真实日线历史与均线系统...`);
-  const marketMap = await fetchBatchTickerData(tickerList, 8);
+  console.log(`📊 [Step 1: 确定性行情抓取] 正在并发抓取 ${tickerList.length} 只标的真实日线历史与均线系统 (目标交易日: ${today})...`);
+  const marketMap = await fetchBatchTickerData(tickerList, 8, today);
 
   // 提取宏观资产
   const macro = {
@@ -1119,7 +1150,24 @@ isFallback 必须填为 false。`,
   }
 
   fs.writeFileSync(path.join(dataDir, `${today}.json`), JSON.stringify(reportJson, null, 2));
-  fs.writeFileSync(path.resolve(projectRoot, "src/data/latestReport.json"), JSON.stringify(reportJson, null, 2));
+
+  // 严谨维护 latestReport.json：仅当生成的目标日期大于等于当前最新报告日期时才覆写，防止补跑历史数据时倒退覆盖
+  const latestReportPath = path.resolve(projectRoot, "src/data/latestReport.json");
+  let shouldUpdateLatest = true;
+  if (fs.existsSync(latestReportPath)) {
+    try {
+      const existingLatest = JSON.parse(fs.readFileSync(latestReportPath, "utf-8"));
+      if (existingLatest.date && existingLatest.date > today) {
+        shouldUpdateLatest = false;
+        console.log(`ℹ️ 当前最新报告日期为 [${existingLatest.date}]，大于本次生成的历史归档日期 [${today}]，跳过覆写 latestReport.json。`);
+      }
+    } catch {
+      shouldUpdateLatest = true;
+    }
+  }
+  if (shouldUpdateLatest) {
+    fs.writeFileSync(latestReportPath, JSON.stringify(reportJson, null, 2));
+  }
 
   console.log(`✅ [${today}] Phase 2 美股权威研报生成完毕！11 大板块、真实均线系统与 isFallback 标记均已入库！`);
 }
